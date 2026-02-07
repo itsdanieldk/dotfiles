@@ -1,0 +1,161 @@
+#!/usr/bin/env zsh
+
+set -eu
+
+DOTFILES=${0:A:h}
+
+ask() {
+    read -q "?$1 [y/N] " || { print; return 1 }
+    print
+}
+
+# --- Xcode Command Line Tools ---
+if ! xcode-select -p &>/dev/null; then
+    if ask "Install Xcode Command Line Tools?"; then
+        print "Installing Xcode Command Line Tools..."
+        xcode-select --install
+        until xcode-select -p &>/dev/null; do
+            sleep 5
+        done
+        print "Xcode Command Line Tools installed."
+    fi
+fi
+
+# --- Homebrew ---
+if ! command -v brew &>/dev/null; then
+    if ask "Install Homebrew?"; then
+        print "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+        print "Homebrew installed."
+    fi
+fi
+
+# --- Brewfile ---
+if command -v brew &>/dev/null; then
+    while IFS= read -r line; do
+        [[ -z $line || $line == \#* ]] && continue
+        type=${line%% *}
+        pkg=${line#*\"}; pkg=${pkg%%\"*}
+        if ask "Install ${type} package '${pkg}'?"; then
+            case $type in
+                brew) brew install $pkg ;;
+                cask) brew install --cask $pkg ;;
+            esac
+        fi
+    done < ${DOTFILES}/Brewfile
+fi
+
+# --- Oh My Zsh ---
+if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
+    if ask "Install Oh My Zsh?"; then
+        print "Installing Oh My Zsh..."
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc
+        print "Oh My Zsh installed."
+    fi
+fi
+
+# --- Oh My Zsh Custom Plugins ---
+ZSH_CUSTOM=${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}
+typeset -A custom_plugins=(
+    zsh-autosuggestions  https://github.com/zsh-users/zsh-autosuggestions.git
+    zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting.git
+)
+for plugin url in ${(kv)custom_plugins}; do
+    if [[ ! -d ${ZSH_CUSTOM}/plugins/${plugin} ]]; then
+        if ask "Install oh-my-zsh plugin '${plugin}'?"; then
+            git clone $url ${ZSH_CUSTOM}/plugins/${plugin}
+            print "  ${plugin} installed."
+        fi
+    fi
+done
+
+# --- macOS Defaults ---
+if ask "Apply macOS Finder defaults?"; then
+    # Show hidden files
+    defaults write com.apple.finder AppleShowAllFiles -bool true
+    # Show all file extensions
+    defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+    # Show path bar
+    defaults write com.apple.finder ShowPathbar -bool true
+    # Show status bar
+    defaults write com.apple.finder ShowStatusBar -bool true
+    # Default to list view
+    defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
+    # Disable warning when changing file extension
+    defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
+    # Keep folders on top when sorting by name
+    defaults write com.apple.finder _FXSortFoldersFirst -bool true
+    killall Finder
+    print "Finder defaults applied."
+fi
+
+if ask "Apply macOS Dock defaults?"; then
+    # Minimize windows into their application icon
+    defaults write com.apple.dock minimize-to-application -bool true
+    # Don't show recent applications
+    defaults write com.apple.dock show-recents -bool false
+    killall Dock
+    print "Dock defaults applied."
+fi
+
+if ask "Apply macOS keyboard defaults?"; then
+    # Blazing fast key repeat (essential for Vim-style navigation)
+    defaults write NSGlobalDomain KeyRepeat -int 2
+    # Short delay until key repeat kicks in
+    defaults write NSGlobalDomain InitialKeyRepeat -int 15
+    # Disable auto-correct
+    defaults write NSGlobalDomain NSAutoCorrectionEnabled -bool false
+    # Disable smart quotes (they break code)
+    defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+    # Disable smart dashes (they break code)
+    defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+    # Enable full keyboard access (Tab through all UI controls)
+    defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
+    print "Keyboard defaults applied."
+fi
+
+if ask "Apply macOS screenshot defaults?"; then
+    # Save screenshots to ~/Pictures/Screenshots instead of Desktop
+    defaults write com.apple.screencapture location -string "${HOME}/Pictures/Screenshots"
+    mkdir -p ${HOME}/Pictures/Screenshots
+    # Disable shadow in screenshots
+    defaults write com.apple.screencapture disable-shadow -bool true
+    # Save as PNG (lossless)
+    defaults write com.apple.screencapture type -string "png"
+    killall SystemUIServer
+    print "Screenshot defaults applied."
+fi
+
+if ask "Apply miscellaneous power-user defaults?"; then
+    # Expand save panels by default
+    # defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
+    # defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
+    # Expand print panels by default
+    # defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
+    # defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
+    print "Miscellaneous defaults applied."
+fi
+
+if ask "Apply Safari developer defaults?"; then
+    # Enable the Develop menu and Web Inspector
+    defaults write com.apple.Safari IncludeDevelopMenu -bool true
+    defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
+    # Show the full URL in the address bar
+    defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true
+    print "Safari developer defaults applied."
+fi
+
+# --- Stow ---
+if command -v stow &>/dev/null; then
+    if ask "Stow dotfiles?"; then
+        for dir in ${DOTFILES}/*(/); do
+            stow -d ${DOTFILES} -R ${dir:t}
+            print "  ${dir:t} stowed."
+        done
+    fi
+else
+    print "stow not found, skipping dotfile linking."
+fi
+
+print "All done!"
