@@ -73,7 +73,7 @@ done
 # --- macOS Defaults ---
 if ask "Apply macOS Finder defaults?"; then
     # Show hidden files
-    defaults write com.apple.finder AppleShowAllFiles -bool true
+    #defaults write com.apple.finder AppleShowAllFiles -bool true
     # Show all file extensions
     defaults write NSGlobalDomain AppleShowAllExtensions -bool true
     # Show path bar
