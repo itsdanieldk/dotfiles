@@ -5,3 +5,11 @@
 .Spotlight-V100
 .Trashes
 **/.claude/settings.local.json
+
+# IDE / Editor
+.vs/
+.idea/
+
+# .NET user-level files
+*.user
+*.suo

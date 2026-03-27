@@ -1,5 +1,8 @@
 export ZSH="$HOME/.oh-my-zsh"
-export PATH="$HOME/.aspire/bin:$PATH"
+[[ -d "$HOME/.aspire/bin" ]] && export PATH="$HOME/.aspire/bin:$PATH"
+
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
+export DOTNET_ROOT="$(brew --prefix)/share/dotnet"
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -15,7 +18,8 @@ plugins=(
     copypath
     copyfile
     colored-man-pages
-    docker-compose
+    docker
+    dotnet
     aliases
     zsh-autosuggestions
     zsh-syntax-highlighting
@@ -31,3 +35,11 @@ fi
 alias v="nvim"
 alias vim="nvim"
 
+# Docker (v2 compose syntax)
+alias dc="docker compose"
+alias dcu="docker compose up -d"
+alias dcd="docker compose down"
+alias dcl="docker compose logs -f"
+alias dps="docker ps"
+alias dcb="docker compose build"
+alias dcr="docker compose restart"
