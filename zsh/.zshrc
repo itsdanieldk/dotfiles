@@ -1,7 +1,10 @@
 export ZSH="$HOME/.oh-my-zsh"
+export PATH="$HOME/.aspire/bin:$PATH"
+
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 
 ZSH_THEME="awesomepanda"
-
 HIST_STAMPS="dd.mm.yyyy"
 
 plugins=(
@@ -19,9 +22,6 @@ plugins=(
 )
 source $ZSH/oh-my-zsh.sh
 
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
-
 if [[ -n $SSH_CONNECTION ]]; then
     export EDITOR='vim'
 else
@@ -30,3 +30,4 @@ fi
 
 alias v="nvim"
 alias vim="nvim"
+
