@@ -1,28 +1,50 @@
+# --- Core Tools ---
 brew "stow"
+brew "git"
 brew "neovim"
+
+# --- Utilities ---
 brew "fastfetch"
 brew "htop"
+
+# --- Cloud & Containers ---
 brew "azure-cli"
-brew "docker-compose"
-brew "git"
-cask "jetbrains-toolbox"
+
+# --- AI ---
+brew "ollama"
+
+# --- Fonts ---
 cask "font-fira-code-nerd-font"
+cask "font-fira-sans"
+
+# --- Development ---
+cask "jetbrains-toolbox"
 cask "kitty"
-cask "macs-fan-control"
-cask "logi-options+"
-cask "onyx"
+cask "visual-studio-code"
+cask "dotnet-sdk"
+cask "docker-desktop"
+cask "yaak"
+
+# --- AI Apps ---
+cask "claude"
+cask "claude-code"
+cask "codex"
+cask "codex-app"
+cask "copilot-cli"
+
+# --- Browsers & Media ---
 cask "google-chrome"
 cask "iina"
 cask "discord"
-cask "docker-desktop"
-cask "dotnet-sdk"
-cask "visual-studio-code"
-cask "yaak"
+
+# --- System & Hardware ---
+cask "macs-fan-control"
+cask "monitorcontrol"
+cask "logi-options+"
+cask "focusrite-control-2"
+cask "onyx"
+cask "philips-hue-sync"
+
+# --- Games ---
 cask "steam"
 cask "battle-net"
-cask "philips-hue-sync"
-cask "font-fira-sans"
-cask "monitorcontrol"
-cask "claude-code"
-cask "codex"
-cask "copilot-cli"

@@ -35,12 +35,13 @@ fi
 if command -v brew &>/dev/null; then
     while IFS= read -r line; do
         [[ -z $line || $line == \#* ]] && continue
-        type=${line%% *}
-        pkg=${line#*\"}; pkg=${pkg%%\"*}
+        [[ $line =~ '^(brew|cask)[[:space:]]+"([^"]+)"' ]] || continue
+        type=$match[1]
+        pkg=$match[2]
         if ask "Install ${type} package '${pkg}'?"; then
             case $type in
-                brew) brew install $pkg ;;
-                cask) brew install --cask $pkg ;;
+                brew) brew install "$pkg" || print "  Warning: failed to install ${pkg}, continuing..." ;;
+                cask) brew install --cask "$pkg" || print "  Warning: failed to install ${pkg}, continuing..." ;;
             esac
         fi
     done < ${DOTFILES}/Brewfile
@@ -64,7 +65,7 @@ typeset -A custom_plugins=(
 for plugin url in ${(kv)custom_plugins}; do
     if [[ ! -d ${ZSH_CUSTOM}/plugins/${plugin} ]]; then
         if ask "Install oh-my-zsh plugin '${plugin}'?"; then
-            git clone $url ${ZSH_CUSTOM}/plugins/${plugin}
+            git clone "$url" "${ZSH_CUSTOM}/plugins/${plugin}"
             print "  ${plugin} installed."
         fi
     fi
@@ -72,8 +73,6 @@ done
 
 # --- macOS Defaults ---
 if ask "Apply macOS Finder defaults?"; then
-    # Show hidden files
-    #defaults write com.apple.finder AppleShowAllFiles -bool true
     # Show all file extensions
     defaults write NSGlobalDomain AppleShowAllExtensions -bool true
     # Show path bar
@@ -95,6 +94,10 @@ if ask "Apply macOS Dock defaults?"; then
     defaults write com.apple.dock minimize-to-application -bool true
     # Don't show recent applications
     defaults write com.apple.dock show-recents -bool false
+    # Don't rearrange Spaces based on most recent use
+    defaults write com.apple.dock mru-spaces -bool false
+    # Faster Mission Control animation
+    defaults write com.apple.dock expose-animation-duration -float 0.1
     killall Dock
     print "Dock defaults applied."
 fi
@@ -112,6 +115,14 @@ if ask "Apply macOS keyboard defaults?"; then
     defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
     # Enable full keyboard access (Tab through all UI controls)
     defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
+    # Disable auto-capitalization
+    defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
+    # Disable auto period substitution (double-space to period)
+    defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
+    # Disable spell correction
+    defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+    # Disable press-and-hold for accent characters (enables key repeat everywhere)
+    defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
     print "Keyboard defaults applied."
 fi
 
@@ -129,21 +140,12 @@ fi
 
 if ask "Apply miscellaneous power-user defaults?"; then
     # Expand save panels by default
-    # defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
-    # defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
+    defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
+    defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
     # Expand print panels by default
-    # defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
-    # defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
+    defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
+    defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
     print "Miscellaneous defaults applied."
-fi
-
-if ask "Apply Safari developer defaults?"; then
-    # Enable the Develop menu and Web Inspector
-    defaults write com.apple.Safari IncludeDevelopMenu -bool true
-    defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
-    # Show the full URL in the address bar
-    defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true
-    print "Safari developer defaults applied."
 fi
 
 # --- Stow ---
