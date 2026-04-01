@@ -9,7 +9,6 @@ brew "htop"
 
 # --- Cloud & Containers ---
 brew "azure-cli"
-brew "dotnet"
 
 # --- AI ---
 brew "ollama"
