@@ -2,7 +2,12 @@ export ZSH="$HOME/.oh-my-zsh"
 [[ -d "$HOME/.aspire/bin" ]] && export PATH="$HOME/.aspire/bin:$PATH"
 
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
-export DOTNET_ROOT="$(brew --prefix)/share/dotnet"
+if command -v brew >/dev/null 2>&1; then
+    DOTNET_ROOT_CANDIDATE="$(brew --prefix)/share/dotnet"
+    if [ -d "$DOTNET_ROOT_CANDIDATE" ]; then
+        export DOTNET_ROOT="$DOTNET_ROOT_CANDIDATE"
+    fi
+fi
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
