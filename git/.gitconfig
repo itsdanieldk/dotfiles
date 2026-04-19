@@ -5,7 +5,16 @@
     helper = osxkeychain
 [core]
     editor = nvim
-    pager = less -FRX
+    pager = delta
+    fsmonitor = true
+    untrackedCache = true
+[interactive]
+    diffFilter = delta --color-only
+[delta]
+    navigate = true
+    side-by-side = true
+    line-numbers = true
+    syntax-theme = Catppuccin Mocha
 [init]
     defaultBranch = main
 [pull]
@@ -27,3 +36,15 @@
     sort = -version:refname
 [rebase]
     autoStash = true
+[alias]
+    lg = log --graph --oneline --decorate --all
+    last = log -1 HEAD --stat
+    undo = reset --soft HEAD~1
+    today = log --since=midnight --author='itsdanieldk' --oneline
+    amend = commit --amend --no-edit
+    recent = branch --sort=-committerdate --format='%(committerdate:relative)%09%(refname:short)'
+[column]
+    ui = auto
+[maintenance]
+    auto = true
+    strategy = incremental

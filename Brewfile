@@ -3,9 +3,32 @@ brew "stow"
 brew "git"
 brew "neovim"
 
+# --- Modern CLI Replacements ---
+brew "ripgrep"
+brew "fd"
+brew "bat"
+brew "eza"
+brew "fzf"
+brew "jq"
+brew "zoxide"
+
 # --- Utilities ---
 brew "fastfetch"
 brew "htop"
+brew "btop"
+brew "dust"
+brew "yq"
+brew "tldr"
+brew "tree"
+
+# --- Git & Dev Tools ---
+brew "gh"
+brew "git-delta"
+brew "lazygit"
+brew "lazydocker"
+
+# --- Runtime Management ---
+brew "direnv"
 
 # --- Cloud & Containers ---
 brew "azure-cli"

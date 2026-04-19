@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-macOS dotfiles managed with GNU Stow. Each top-level directory (git, zsh, hushlogin, ssh, nvim, kitty) is a stow package whose contents mirror the home directory structure (e.g. `zsh/.zshrc` symlinks to `~/.zshrc`).
+macOS dotfiles managed with GNU Stow. Each top-level directory (bat, claude, git, hushlogin, kitty, lazygit, nvim, ssh, zsh) is a stow package whose contents mirror the home directory structure (e.g. `zsh/.zshrc` symlinks to `~/.zshrc`).
 
 ## Commands
 
 - Syntax-check the install script: `zsh -n install`
 - Re-stow a single package: `stow -d ~/dotfiles -R <package>`
-- Run the full bootstrap: `./install` (interactive, prompts y/N for each step)
+- Run the full bootstrap: `./install` (interactive, prompts y/N for each step; use `./install --yes` for non-interactive)
 
 ## Shell
 
@@ -18,18 +18,23 @@ All scripts use **zsh** (not bash). The install script relies on zsh-specific bu
 
 ## Install Script
 
-`./install` is an interactive bootstrap. It prompts (y/N) before each step: Xcode CLI Tools, Homebrew, individual Brewfile packages (brew/cask), Oh My Zsh (unattended, preserves .zshrc), custom plugins (zsh-autosuggestions, zsh-syntax-highlighting), macOS defaults (Finder, Dock, keyboard, screenshots, Safari), and stow linking.
-
-The Brewfile parser extracts `type` and `pkg` from each line (skipping comments via `\#*`) and dispatches to `brew install` or `brew install --cask`. Individual brew failures are caught with `|| print` so they don't abort the loop (the script runs under `set -eu`). The stow loop auto-discovers all top-level directories via the `*(/)` glob qualifier.
+`./install` is an interactive bootstrap with `set -eu`. It skips already-installed brew packages, catches individual failures with `|| warn`, and uses stow `--adopt` to resolve symlink conflicts. Pass `--yes` or `-y` for non-interactive mode.
 
 ## Adding a New Stow Package
 
-Create a directory whose internal structure mirrors the home-relative path (e.g. `foo/.config/foo/config.toml`). The install script's stow loop picks it up automatically.
+Create a directory whose internal structure mirrors the home-relative path (e.g. `foo/.config/foo/config.toml`). The install script's stow loop picks it up automatically via the `*(/)` glob qualifier.
 
-## Key Config Details
+## Architecture Notes
 
-- **Git**: pull rebase, push auto-setup-remote, fetch prune, zdiff3 conflict style, rerere, histogram diffs, colorMoved, rebase autoStash, branch sort by recent
-- **Zsh**: Oh My Zsh with awesomepanda theme; editor is nvim locally, vim over SSH; Docker v2 aliases (`dc`, `dcu`, `dcd`, `dcl`, `dps`, `dcb`, `dcr`); .NET telemetry opted out
-- **Kitty**: Catppuccin Mocha theme, FiraCode Nerd Font Mono, splits+stack layouts, `cmd+d`/`cmd+shift+d` for splits, `cmd+t`/`cmd+w`/`cmd+1-9` for tabs, `cmd+f` scrollback search
-- **SSH**: macOS Keychain integration, IdentitiesOnly, 60s keepalive, hashed known_hosts
-- **Global gitignore** (`git/.config/git/ignore`): `.DS_Store`, macOS metadata, `.claude/settings.local.json`, `.vs/`, `.idea/`, `*.user`, `*.suo`
+- **Catppuccin Mocha** is the unified theme across kitty, nvim, bat, lazygit, and delta (git pager). When adding new tools with theme support, use Catppuccin Mocha for consistency.
+- **Kitty theme** is extracted to `kitty/.config/kitty/themes/catppuccin-mocha.conf` via `include` — edit the theme file, not `kitty.conf`.
+- **Git pager** is `delta` (not `less`). The `[delta]` section in `.gitconfig` and lazygit's `git.paging.pager` must stay in sync.
+- **Powerlevel10k** is the zsh prompt. Config lives in `zsh/.p10k.zsh`. The instant prompt block at the top of `.zshrc` must remain first — nothing can print to stdout before it.
+- **Neovim** uses lazy.nvim for plugin management. Plugin specs live in `nvim/.config/nvim/lua/plugins/`. Core config (options, keymaps) lives in `nvim/.config/nvim/lua/config/`.
+- **Zsh load order** in `.zshrc` is critical and must be preserved:
+  1. Powerlevel10k instant prompt (must be first — nothing can print to stdout before it)
+  2. Oh My Zsh config + `source $ZSH/oh-my-zsh.sh`
+  3. Aliases and shell tool inits (fzf, zoxide, direnv)
+  4. `source ~/.p10k.zsh`
+  5. `setopt aliases` (required — p10k leaks `noaliases` from its config)
+- **Brewfile format** uses `brew "pkg"` or `cask "pkg"` — the install script's regex parser depends on this exact quoting.

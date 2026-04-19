@@ -4,7 +4,22 @@ set -eu
 
 DOTFILES=${0:A:h}
 
+# Colors
+autoload -U colors && colors
+info()  { print -P "%F{blue}[INFO]%f  $1" }
+ok()    { print -P "%F{green}[OK]%f    $1" }
+warn()  { print -P "%F{yellow}[WARN]%f  $1" }
+err()   { print -P "%F{red}[ERROR]%f $1" }
+
+# Non-interactive mode
+AUTOYES=false
+[[ ${1:-} == "--yes" || ${1:-} == "-y" ]] && AUTOYES=true
+
 ask() {
+    if $AUTOYES; then
+        info "$1 [auto-yes]"
+        return 0
+    fi
     read -q "?$1 [y/N] " || { print; return 1 }
     print
 }
@@ -12,47 +27,52 @@ ask() {
 # --- Xcode Command Line Tools ---
 if ! xcode-select -p &>/dev/null; then
     if ask "Install Xcode Command Line Tools?"; then
-        print "Installing Xcode Command Line Tools..."
+        info "Installing Xcode Command Line Tools..."
         xcode-select --install
         until xcode-select -p &>/dev/null; do
             sleep 5
         done
-        print "Xcode Command Line Tools installed."
+        ok "Xcode Command Line Tools installed."
     fi
 fi
 
 # --- Homebrew ---
 if ! command -v brew &>/dev/null; then
     if ask "Install Homebrew?"; then
-        print "Installing Homebrew..."
+        info "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         eval "$(/opt/homebrew/bin/brew shellenv zsh)"
-        print "Homebrew installed."
+        ok "Homebrew installed."
     fi
 fi
 
 # --- Brewfile ---
 if command -v brew &>/dev/null; then
-    while IFS= read -r line; do
+    while IFS= read -r line <&3; do
         [[ -z $line || $line == \#* ]] && continue
         [[ $line =~ '^(brew|cask)[[:space:]]+"([^"]+)"' ]] || continue
         type=$match[1]
         pkg=$match[2]
+        # Skip if already installed
+        if brew list --formula "$pkg" &>/dev/null || brew list --cask "$pkg" &>/dev/null; then
+            info "'${pkg}' already installed, skipping."
+            continue
+        fi
         if ask "Install ${type} package '${pkg}'?"; then
             case $type in
-                brew) brew install "$pkg" || print "  Warning: failed to install ${pkg}, continuing..." ;;
-                cask) brew install --cask "$pkg" || print "  Warning: failed to install ${pkg}, continuing..." ;;
+                brew) brew install "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
+                cask) brew install --cask "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
             esac
         fi
-    done < ${DOTFILES}/Brewfile
+    done 3< ${DOTFILES}/Brewfile
 fi
 
 # --- Oh My Zsh ---
 if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
     if ask "Install Oh My Zsh?"; then
-        print "Installing Oh My Zsh..."
+        info "Installing Oh My Zsh..."
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc
-        print "Oh My Zsh installed."
+        ok "Oh My Zsh installed."
     fi
 fi
 
@@ -66,7 +86,7 @@ for plugin url in ${(kv)custom_plugins}; do
     if [[ ! -d ${ZSH_CUSTOM}/plugins/${plugin} ]]; then
         if ask "Install oh-my-zsh plugin '${plugin}'?"; then
             git clone "$url" "${ZSH_CUSTOM}/plugins/${plugin}"
-            print "  ${plugin} installed."
+            ok "${plugin} installed."
         fi
     fi
 done
@@ -75,6 +95,8 @@ done
 if ask "Apply macOS Finder defaults?"; then
     # Show all file extensions
     defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+    # Show hidden files
+    defaults write com.apple.finder AppleShowAllFiles -bool true
     # Show path bar
     defaults write com.apple.finder ShowPathbar -bool true
     # Show status bar
@@ -85,8 +107,14 @@ if ask "Apply macOS Finder defaults?"; then
     defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
     # Keep folders on top when sorting by name
     defaults write com.apple.finder _FXSortFoldersFirst -bool true
+    # Search the current folder by default
+    defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+    # Disable the "Are you sure you want to open this application?" dialog
+    defaults write com.apple.LaunchServices LSQuarantine -bool false
+    # Show ~/Library
+    chflags nohidden ~/Library
     killall Finder
-    print "Finder defaults applied."
+    ok "Finder defaults applied."
 fi
 
 if ask "Apply macOS Dock defaults?"; then
@@ -98,8 +126,14 @@ if ask "Apply macOS Dock defaults?"; then
     defaults write com.apple.dock mru-spaces -bool false
     # Faster Mission Control animation
     defaults write com.apple.dock expose-animation-duration -float 0.1
+    # Remove auto-hide delay
+    defaults write com.apple.dock autohide-delay -float 0
+    # Faster auto-hide animation
+    defaults write com.apple.dock autohide-time-modifier -float 0.3
+    # Set icon size
+    defaults write com.apple.dock tilesize -int 48
     killall Dock
-    print "Dock defaults applied."
+    ok "Dock defaults applied."
 fi
 
 if ask "Apply macOS keyboard defaults?"; then
@@ -123,7 +157,7 @@ if ask "Apply macOS keyboard defaults?"; then
     defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
     # Disable press-and-hold for accent characters (enables key repeat everywhere)
     defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
-    print "Keyboard defaults applied."
+    ok "Keyboard defaults applied."
 fi
 
 if ask "Apply macOS screenshot defaults?"; then
@@ -135,7 +169,15 @@ if ask "Apply macOS screenshot defaults?"; then
     # Save as PNG (lossless)
     defaults write com.apple.screencapture type -string "png"
     killall SystemUIServer
-    print "Screenshot defaults applied."
+    ok "Screenshot defaults applied."
+fi
+
+if ask "Apply macOS trackpad defaults?"; then
+    # Enable tap to click
+    #defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
+    # Three-finger drag
+    defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerDrag -bool true
+    ok "Trackpad defaults applied."
 fi
 
 if ask "Apply miscellaneous power-user defaults?"; then
@@ -145,19 +187,24 @@ if ask "Apply miscellaneous power-user defaults?"; then
     # Expand print panels by default
     defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
     defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
-    print "Miscellaneous defaults applied."
+    ok "Miscellaneous defaults applied."
 fi
 
 # --- Stow ---
 if command -v stow &>/dev/null; then
     if ask "Stow dotfiles?"; then
         for dir in ${DOTFILES}/*(/); do
-            stow -d ${DOTFILES} -R ${dir:t}
-            print "  ${dir:t} stowed."
+            if ! stow -d ${DOTFILES} -n -R ${dir:t} 2>/dev/null; then
+                warn "${dir:t} has conflicts, using --adopt to resolve..."
+                stow -d ${DOTFILES} --adopt -R ${dir:t}
+            else
+                stow -d ${DOTFILES} -R ${dir:t}
+            fi
+            ok "${dir:t} stowed."
         done
     fi
 else
-    print "stow not found, skipping dotfile linking."
+    warn "stow not found, skipping dotfile linking."
 fi
 
-print "All done!"
+ok "All done!"
