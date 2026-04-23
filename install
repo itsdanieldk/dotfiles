@@ -76,8 +76,21 @@ if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
     fi
 fi
 
-# --- Oh My Zsh Custom Plugins ---
+# --- Oh My Zsh Custom Themes ---
 ZSH_CUSTOM=${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}
+typeset -A custom_themes=(
+    powerlevel10k  https://github.com/romkatv/powerlevel10k.git
+)
+for theme url in ${(kv)custom_themes}; do
+    if [[ ! -d ${ZSH_CUSTOM}/themes/${theme} ]]; then
+        if ask "Install oh-my-zsh theme '${theme}'?"; then
+            git clone --depth=1 "$url" "${ZSH_CUSTOM}/themes/${theme}"
+            ok "${theme} installed."
+        fi
+    fi
+done
+
+# --- Oh My Zsh Custom Plugins ---
 typeset -A custom_plugins=(
     zsh-autosuggestions  https://github.com/zsh-users/zsh-autosuggestions.git
     zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting.git
