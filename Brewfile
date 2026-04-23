@@ -29,6 +29,8 @@ brew "lazydocker"
 
 # --- Runtime Management ---
 brew "direnv"
+brew "node"
+brew "pnpm"
 
 # --- Cloud & Containers ---
 brew "azure-cli"

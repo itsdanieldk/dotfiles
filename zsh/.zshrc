@@ -34,6 +34,9 @@ plugins=(
     zsh-autosuggestions
     zsh-syntax-highlighting
 )
+# Docker CLI completions (fpath must be set before compinit/OMZ source)
+fpath=("$HOME/.docker/completions" $fpath)
+
 source $ZSH/oh-my-zsh.sh
 
 if [[ -n $SSH_CONNECTION ]]; then
@@ -74,6 +77,13 @@ eval "$(zoxide init zsh)"
 
 # direnv (per-directory env)
 eval "$(direnv hook zsh)"
+
+# pnpm
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
 
 # Powerlevel10k config
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
