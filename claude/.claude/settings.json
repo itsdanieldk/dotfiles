@@ -4,5 +4,5 @@
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
   },
-  "effortLevel": "high"
+  "effortLevel": "xhigh"
 }
