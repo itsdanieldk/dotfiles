@@ -4,5 +4,6 @@
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
   },
-  "effortLevel": "xhigh"
+  "effortLevel": "xhigh",
+  "theme": "auto"
 }

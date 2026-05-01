@@ -7,11 +7,9 @@ export ZSH="$HOME/.oh-my-zsh"
 [[ -d "$HOME/.aspire/bin" ]] && export PATH="$HOME/.aspire/bin:$PATH"
 
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
-if command -v brew >/dev/null 2>&1; then
-    DOTNET_ROOT_CANDIDATE="$(brew --prefix)/share/dotnet"
-    if [ -d "$DOTNET_ROOT_CANDIDATE" ]; then
-        export DOTNET_ROOT="$DOTNET_ROOT_CANDIDATE"
-    fi
+if [ -d "/usr/local/share/dotnet" ]; then
+    export DOTNET_ROOT="/usr/local/share/dotnet"
+    export PATH="$DOTNET_ROOT:$PATH"
 fi
 
 export LANG=en_US.UTF-8
@@ -39,6 +37,14 @@ fpath=("$HOME/.docker/completions" $fpath)
 
 source $ZSH/oh-my-zsh.sh
 
+# History
+HISTSIZE=100000
+SAVEHIST=100000
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_REDUCE_BLANKS
+setopt SHARE_HISTORY
+setopt HIST_IGNORE_SPACE
+
 if [[ -n $SSH_CONNECTION ]]; then
     export EDITOR='vim'
 else
@@ -65,12 +71,16 @@ alias cat="bat --paging=never"
 alias lg="lazygit"
 alias ld="lazydocker"
 
+# History search
+alias hs='history 1 | grep --color=auto'
+
 # fzf
 source <(fzf --zsh)
 export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
 export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:500 {}'"
+export FZF_CTRL_R_OPTS="--reverse --preview 'echo {}' --preview-window up:3:hidden:wrap --bind 'ctrl-y:execute-silent(echo -n {2..} | pbcopy)+abort' --header 'Press CTRL-Y to copy command to clipboard'"
 
 # zoxide (smart cd)
 eval "$(zoxide init zsh)"
