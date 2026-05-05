@@ -17,10 +17,12 @@ The install script interactively prompts (y/N) before each step:
 3. Brewfile packages (skips already installed)
 4. Oh My Zsh
 5. Oh My Zsh custom plugins (zsh-autosuggestions, zsh-syntax-highlighting)
-6. macOS defaults (Finder, Dock, keyboard, screenshots, trackpad, Safari)
-7. Stow dotfile linking (with conflict detection)
+6. macOS defaults (Finder, Dock, keyboard, screenshots, trackpad, misc power-user)
+7. Stow dotfile linking (errors on conflict by default)
 
-Pass `--yes` or `-y` for non-interactive mode.
+Flags:
+- `--yes` / `-y` — non-interactive (auto-yes to all prompts)
+- `--adopt` — allow stow to resolve conflicts by adopting `$HOME` files into the repo (**destructive**: overwrites tracked configs; review `git diff` after)
 
 ## Stow Packages
 

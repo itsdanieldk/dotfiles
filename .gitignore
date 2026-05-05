@@ -1,1 +1,6 @@
 /.claude
+
+# Defensive: never commit ssh keys via the ssh stow package
+ssh/.ssh/id_*
+ssh/.ssh/*.pub
+ssh/.ssh/known_hosts*

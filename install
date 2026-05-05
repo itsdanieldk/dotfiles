@@ -11,9 +11,22 @@ ok()    { print -P "%F{green}[OK]%f    $1" }
 warn()  { print -P "%F{yellow}[WARN]%f  $1" }
 err()   { print -P "%F{red}[ERROR]%f $1" }
 
-# Non-interactive mode
+# Flags
 AUTOYES=false
-[[ ${1:-} == "--yes" || ${1:-} == "-y" ]] && AUTOYES=true
+ALLOW_ADOPT=false
+for arg in "$@"; do
+    case $arg in
+        --yes|-y) AUTOYES=true ;;
+        --adopt)  ALLOW_ADOPT=true ;;
+        -h|--help)
+            print "Usage: ./install [--yes|-y] [--adopt]"
+            print "  --yes      Non-interactive (auto-yes to all prompts)"
+            print "  --adopt    Allow stow --adopt on conflict (DESTRUCTIVE: moves \$HOME files into the repo)"
+            exit 0
+            ;;
+        *) err "Unknown flag: $arg"; exit 2 ;;
+    esac
+done
 
 ask() {
     if $AUTOYES; then
@@ -50,16 +63,33 @@ fi
 if command -v brew &>/dev/null; then
     while IFS= read -r line <&3; do
         [[ -z $line || $line == \#* ]] && continue
-        [[ $line =~ '^(brew|cask)[[:space:]]+"([^"]+)"' ]] || continue
+        [[ $line =~ '^(brew|cask|tap)[[:space:]]+"([^"]+)"' ]] || continue
         type=$match[1]
         pkg=$match[2]
-        # Skip if already installed
-        if brew list --formula "$pkg" &>/dev/null || brew list --cask "$pkg" &>/dev/null; then
-            info "'${pkg}' already installed, skipping."
-            continue
-        fi
-        if ask "Install ${type} package '${pkg}'?"; then
+        # Skip if already installed/tapped
+        case $type in
+            tap)
+                if brew tap | grep -qx "$pkg"; then
+                    info "tap '${pkg}' already added, skipping."
+                    continue
+                fi
+                ;;
+            brew)
+                if brew list --formula "$pkg" &>/dev/null; then
+                    info "'${pkg}' already installed, skipping."
+                    continue
+                fi
+                ;;
+            cask)
+                if brew list --cask "$pkg" &>/dev/null; then
+                    info "'${pkg}' already installed, skipping."
+                    continue
+                fi
+                ;;
+        esac
+        if ask "Install ${type} '${pkg}'?"; then
             case $type in
+                tap)  brew tap "$pkg" || warn "Failed to tap ${pkg}, continuing..." ;;
                 brew) brew install "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
                 cask) brew install --cask "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
             esac
@@ -207,13 +237,18 @@ fi
 if command -v stow &>/dev/null; then
     if ask "Stow dotfiles?"; then
         for dir in ${DOTFILES}/*(/); do
-            if ! stow -d ${DOTFILES} -n -R ${dir:t} 2>/dev/null; then
-                warn "${dir:t} has conflicts, using --adopt to resolve..."
-                stow -d ${DOTFILES} --adopt -R ${dir:t}
-            else
+            if stow -d ${DOTFILES} -n -R ${dir:t} 2>/dev/null; then
                 stow -d ${DOTFILES} -R ${dir:t}
+                ok "${dir:t} stowed."
+            elif $ALLOW_ADOPT; then
+                warn "${dir:t} has conflicts; --adopt set, resolving..."
+                stow -d ${DOTFILES} --adopt -R ${dir:t}
+                warn "Adopted ${dir:t}: review 'git diff' for clobbered tracked files."
+            else
+                err "${dir:t} has conflicts with files in \$HOME."
+                err "Re-run with --adopt to resolve (DESTRUCTIVE: moves \$HOME files into the repo, overwriting tracked configs)."
+                exit 1
             fi
-            ok "${dir:t} stowed."
         done
     fi
 else

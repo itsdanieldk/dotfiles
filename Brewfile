@@ -17,7 +17,6 @@ brew "zoxide"
 
 # --- Utilities ---
 brew "fastfetch"
-brew "htop"
 brew "btop"
 brew "dust"
 brew "yq"
@@ -50,8 +49,6 @@ cask "jetbrains-toolbox"
 cask "kitty"
 cask "visual-studio-code"
 cask "dotnet-sdk10"
-cask "dotnet-sdk9"
-cask "dotnet-sdk8"
 cask "docker-desktop"
 cask "yaak"
 

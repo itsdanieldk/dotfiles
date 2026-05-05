@@ -6,17 +6,14 @@ fi
 export ZSH="$HOME/.oh-my-zsh"
 [[ -d "$HOME/.aspire/bin" ]] && export PATH="$HOME/.aspire/bin:$PATH"
 
-export DOTNET_CLI_TELEMETRY_OPTOUT=1
-if [ -d "/usr/local/share/dotnet" ]; then
-    export DOTNET_ROOT="/usr/local/share/dotnet"
-    export PATH="$DOTNET_ROOT:$PATH"
-fi
-
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
 ZSH_THEME="powerlevel10k/powerlevel10k"
 HIST_STAMPS="dd.mm.yyyy"
+
+# Docker CLI completions (fpath must be set before compinit/OMZ source)
+fpath=("$HOME/.docker/completions" $fpath)
 
 plugins=(
     git
@@ -32,8 +29,6 @@ plugins=(
     zsh-autosuggestions
     zsh-syntax-highlighting
 )
-# Docker CLI completions (fpath must be set before compinit/OMZ source)
-fpath=("$HOME/.docker/completions" $fpath)
 
 source $ZSH/oh-my-zsh.sh
 

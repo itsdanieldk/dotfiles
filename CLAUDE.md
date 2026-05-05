@@ -10,7 +10,7 @@ macOS dotfiles managed with GNU Stow. Each top-level directory (bat, claude, git
 
 - Syntax-check the install script: `zsh -n install`
 - Re-stow a single package: `stow -d ~/dotfiles -R <package>`
-- Run the full bootstrap: `./install` (interactive, prompts y/N for each step; use `./install --yes` for non-interactive)
+- Run the full bootstrap: `./install` (interactive, prompts y/N for each step; use `./install --yes` for non-interactive, `./install --adopt` to allow stow conflict adoption)
 
 ## Shell
 
@@ -18,7 +18,11 @@ All scripts use **zsh** (not bash). The install script relies on zsh-specific bu
 
 ## Install Script
 
-`./install` is an interactive bootstrap with `set -eu`. It skips already-installed brew packages, catches individual failures with `|| warn`, and uses stow `--adopt` to resolve symlink conflicts. Pass `--yes` or `-y` for non-interactive mode.
+`./install` is an interactive bootstrap with `set -eu`. It skips already-installed brew packages, catches individual failures with `|| warn`. Flags: `--yes`/`-y` for non-interactive mode, `--adopt` to opt into stow conflict adoption.
+
+- **Stow conflicts fail by default.** If `$HOME` already has files that would collide with the symlinks, the script errors out. To resolve, re-run with `--adopt` — but that's destructive toward the repo: stow moves the existing home-directory file *into the repo* (overwriting the tracked version) and symlinks it back. Always `git diff` after running with `--adopt` before committing.
+- **Brewfile loop reads from FD 3** (`while ... <&3; done 3< Brewfile`) because `ask()`'s `read -q` consumes stdin. If you refactor the loop to a plain `< Brewfile`, every `ask` prompt eats the next Brewfile line and packages get silently skipped.
+- **Brewfile parser handles `tap`, `brew`, `cask`** — all three must use the exact `<directive> "pkg"` quoting; the regex (`^(brew|cask|tap)[[:space:]]+"([^"]+)"`) won't match anything else.
 
 ## Adding a New Stow Package
 
@@ -33,8 +37,8 @@ Create a directory whose internal structure mirrors the home-relative path (e.g.
 - **Neovim** uses lazy.nvim for plugin management. Plugin specs live in `nvim/.config/nvim/lua/plugins/`. Core config (options, keymaps) lives in `nvim/.config/nvim/lua/config/`.
 - **Zsh load order** in `.zshrc` is critical and must be preserved:
   1. Powerlevel10k instant prompt (must be first — nothing can print to stdout before it)
-  2. Oh My Zsh config + `source $ZSH/oh-my-zsh.sh`
+  2. Oh My Zsh config + `source $ZSH/oh-my-zsh.sh` — any `fpath` additions (e.g. `$HOME/.docker/completions`) must come *before* the source line, since OMZ runs `compinit` during sourcing
   3. Aliases and shell tool inits (fzf, zoxide, direnv)
   4. `source ~/.p10k.zsh`
   5. `setopt aliases` (required — p10k leaks `noaliases` from its config)
-- **Brewfile format** uses `brew "pkg"` or `cask "pkg"` — the install script's regex parser depends on this exact quoting.
+- **Brewfile format** uses `tap "pkg"`, `brew "pkg"`, or `cask "pkg"` — the install script's regex parser depends on this exact quoting.

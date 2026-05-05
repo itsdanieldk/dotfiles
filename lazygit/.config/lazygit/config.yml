@@ -22,4 +22,4 @@ gui:
   nerdFontsVersion: "3"
 
 git:
-  pager: delta --dark --paging=never
+  pager: delta --paging=never
