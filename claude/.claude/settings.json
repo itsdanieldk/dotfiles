@@ -5,5 +5,6 @@
     "command": "bash ~/.claude/statusline.sh"
   },
   "effortLevel": "xhigh",
-  "theme": "auto"
+  "theme": "auto",
+  "agentPushNotifEnabled": true
 }

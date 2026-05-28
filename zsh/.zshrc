@@ -26,11 +26,22 @@ plugins=(
     docker
     dotnet
     aliases
+    fzf-tab
     zsh-autosuggestions
     zsh-syntax-highlighting
 )
 
 source $ZSH/oh-my-zsh.sh
+
+# fzf-tab: colored completions and previews. Must load after compinit (which OMZ
+# runs above) and before any widget-wrapping plugins (autosuggestions / syntax-
+# highlighting) — handled by plugin order in the plugins=() array above.
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+zstyle ':fzf-tab:*' switch-group ',' '.'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always --icons $realpath'
+zstyle ':fzf-tab:complete:*:*' fzf-preview \
+    'bat --color=always --style=numbers --line-range=:200 $realpath 2>/dev/null \
+     || eza -1 --color=always --icons $realpath 2>/dev/null'
 
 # History
 HISTSIZE=100000
@@ -76,6 +87,13 @@ export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
 export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:500 {}'"
 export FZF_CTRL_R_OPTS="--reverse --preview 'echo {}' --preview-window up:3:hidden:wrap --bind 'ctrl-y:execute-silent(echo -n {2..} | pbcopy)+abort' --header 'Press CTRL-Y to copy command to clipboard'"
+# Catppuccin Mocha palette for fzf
+export FZF_DEFAULT_OPTS=" \
+--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
+--color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
+--color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
+--color=selected-bg:#45475a \
+--color=border:#313244,label:#cdd6f4"
 
 # zoxide (smart cd)
 eval "$(zoxide init zsh)"

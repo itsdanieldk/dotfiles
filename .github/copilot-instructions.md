@@ -1,6 +1,6 @@
 # Copilot Instructions
 
-macOS dotfiles managed with GNU Stow. Each top-level directory (bat, claude, git, hushlogin, kitty, lazygit, nvim, ssh, zsh) is a stow package whose contents mirror the home directory structure (e.g. `zsh/.zshrc` symlinks to `~/.zshrc`).
+macOS dotfiles managed with GNU Stow. Each top-level directory (bat, btop, claude, git, hushlogin, kitty, lazygit, nvim, ssh, zsh) is a stow package whose contents mirror the home directory structure (e.g. `zsh/.zshrc` symlinks to `~/.zshrc`).
 
 ## Commands
 
@@ -26,14 +26,14 @@ Create a directory whose internal structure mirrors the home-relative path (e.g.
 
 ## Architecture Notes
 
-- **Catppuccin Mocha** is the unified theme across kitty, nvim, bat, lazygit, and delta (git pager). When adding new tools with theme support, use Catppuccin Mocha for consistency.
+- **Catppuccin Mocha** is the unified theme across kitty, nvim, bat, btop, lazygit, delta (git pager), and fzf (via `FZF_DEFAULT_OPTS` in `.zshrc`). When adding new tools with theme support, use Catppuccin Mocha for consistency.
 - **Kitty theme** is extracted to `kitty/.config/kitty/themes/catppuccin-mocha.conf` via `include` — edit the theme file, not `kitty.conf`.
 - **Git pager** is `delta` (not `less`). The `[delta]` section in `.gitconfig` and lazygit's `git.paging.pager` must stay in sync.
 - **Powerlevel10k** is the zsh prompt. Config lives in `zsh/.p10k.zsh`. The instant prompt block at the top of `.zshrc` must remain first — nothing can print to stdout before it.
 - **Neovim** uses lazy.nvim for plugin management. Plugin specs live in `nvim/.config/nvim/lua/plugins/`. Core config (options, keymaps) lives in `nvim/.config/nvim/lua/config/`.
 - **Zsh load order** in `.zshrc` is critical and must be preserved:
   1. Powerlevel10k instant prompt (must be first — nothing can print to stdout before it)
-  2. Oh My Zsh config + `source $ZSH/oh-my-zsh.sh` — any `fpath` additions (e.g. `$HOME/.docker/completions`) must come *before* the source line, since OMZ runs `compinit` during sourcing
+  2. Oh My Zsh config + `source $ZSH/oh-my-zsh.sh` — any `fpath` additions (e.g. `$HOME/.docker/completions`) must come *before* the source line, since OMZ runs `compinit` during sourcing. In the `plugins=()` array, `fzf-tab` must come *before* `zsh-autosuggestions` and `zsh-syntax-highlighting` — fzf-tab wraps the completion widget and the syntax/autosuggestion plugins wrap the line editor; swapping their order silently breaks tab completion or kills syntax highlighting.
   3. Aliases and shell tool inits (fzf, zoxide, direnv)
   4. `source ~/.p10k.zsh`
   5. `setopt aliases` (required — p10k leaks `noaliases` from its config)

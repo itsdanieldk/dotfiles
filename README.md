@@ -16,7 +16,7 @@ The install script interactively prompts (y/N) before each step:
 2. Homebrew
 3. Brewfile packages (skips already installed)
 4. Oh My Zsh
-5. Oh My Zsh custom plugins (zsh-autosuggestions, zsh-syntax-highlighting)
+5. Oh My Zsh custom plugins (fzf-tab, zsh-autosuggestions, zsh-syntax-highlighting)
 6. macOS defaults (Finder, Dock, keyboard, screenshots, trackpad, misc power-user)
 7. Stow dotfile linking (errors on conflict by default)
 
@@ -29,6 +29,7 @@ Flags:
 | Package | Contents |
 |---------|----------|
 | `bat` | bat config (Catppuccin Mocha theme) |
+| `btop` | btop Catppuccin Mocha theme (set `color_theme = "catppuccin_mocha"` in `~/.config/btop/btop.conf` on first run) |
 | `claude` | Claude Code settings and statusline |
 | `git` | `.gitconfig` with delta pager, global gitignore |
 | `hushlogin` | Suppresses "Last login" message |
@@ -46,6 +47,7 @@ Flags:
 
 | Plugin | What it does |
 |--------|-------------|
+| [fzf-tab](https://github.com/Aloxaf/fzf-tab) | Replaces zsh tab completion with an fzf-powered fuzzy menu (with bat/eza previews) |
 | [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) | Fish-like suggestions from history; press `→` to accept |
 | [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting) | Colors valid commands green, invalid red |
 

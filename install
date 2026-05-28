@@ -124,6 +124,7 @@ done
 typeset -A custom_plugins=(
     zsh-autosuggestions  https://github.com/zsh-users/zsh-autosuggestions.git
     zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting.git
+    fzf-tab https://github.com/Aloxaf/fzf-tab.git
 )
 for plugin url in ${(kv)custom_plugins}; do
     if [[ ! -d ${ZSH_CUSTOM}/plugins/${plugin} ]]; then
