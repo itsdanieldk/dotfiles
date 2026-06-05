@@ -1,9 +1,5 @@
 local map = vim.keymap.set
 
--- Leader
-vim.g.mapleader = " "
-vim.g.maplocalleader = " "
-
 -- Better window navigation
 map("n", "<C-h>", "<C-w>h", { desc = "Move to left window" })
 map("n", "<C-j>", "<C-w>j", { desc = "Move to lower window" })
@@ -29,3 +25,14 @@ map("n", "<C-u>", "<C-u>zz")
 map("n", "[d", function() vim.diagnostic.jump({ count = -1 }) end, { desc = "Previous diagnostic" })
 map("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end, { desc = "Next diagnostic" })
 map("n", "<leader>e", vim.diagnostic.open_float, { desc = "Show diagnostic" })
+
+-- File / buffer management
+map("n", "<leader>w", "<cmd>w<CR>", { desc = "Save" })
+map("n", "<leader>q", "<cmd>q<CR>", { desc = "Quit" })
+map("n", "<leader>x", "<cmd>bd<CR>", { desc = "Close buffer" })
+map("n", "[b", "<cmd>bprev<CR>", { desc = "Previous buffer" })
+map("n", "]b", "<cmd>bnext<CR>", { desc = "Next buffer" })
+
+-- Quickfix list navigation
+map("n", "[q", "<cmd>cprev<CR>", { desc = "Previous quickfix" })
+map("n", "]q", "<cmd>cnext<CR>", { desc = "Next quickfix" })

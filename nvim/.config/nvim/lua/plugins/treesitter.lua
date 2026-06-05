@@ -1,11 +1,13 @@
 return {
     {
         "nvim-treesitter/nvim-treesitter",
+        branch = "master",
+        main = "nvim-treesitter.configs",
         build = ":TSUpdate",
         opts = {
             ensure_installed = {
                 "lua", "vim", "vimdoc", "query",
-                "bash", "zsh",
+                "bash",
                 "json", "yaml", "toml",
                 "markdown", "markdown_inline",
                 "c_sharp", "html", "css", "javascript", "typescript",

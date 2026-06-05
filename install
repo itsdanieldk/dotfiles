@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 
 set -eu
+setopt pipefail
 
 DOTFILES=${0:A:h}
 
@@ -95,6 +96,12 @@ if command -v brew &>/dev/null; then
             esac
         fi
     done 3< ${DOTFILES}/Brewfile
+
+    # Refresh tealdeer cache so 'tldr foo' works immediately after install
+    if command -v tldr &>/dev/null; then
+        info "Updating tldr cache..."
+        tldr --update >/dev/null 2>&1 || warn "tldr cache update failed, continuing..."
+    fi
 fi
 
 # --- Oh My Zsh ---
@@ -157,7 +164,7 @@ if ask "Apply macOS Finder defaults?"; then
     defaults write com.apple.LaunchServices LSQuarantine -bool false
     # Show ~/Library
     chflags nohidden ~/Library
-    killall Finder
+    killall Finder 2>/dev/null || true
     ok "Finder defaults applied."
 fi
 
@@ -176,7 +183,7 @@ if ask "Apply macOS Dock defaults?"; then
     defaults write com.apple.dock autohide-time-modifier -float 0.3
     # Set icon size
     defaults write com.apple.dock tilesize -int 48
-    killall Dock
+    killall Dock 2>/dev/null || true
     ok "Dock defaults applied."
 fi
 
@@ -212,7 +219,7 @@ if ask "Apply macOS screenshot defaults?"; then
     defaults write com.apple.screencapture disable-shadow -bool true
     # Save as PNG (lossless)
     defaults write com.apple.screencapture type -string "png"
-    killall SystemUIServer
+    killall SystemUIServer 2>/dev/null || true
     ok "Screenshot defaults applied."
 fi
 

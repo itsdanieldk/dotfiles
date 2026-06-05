@@ -22,6 +22,11 @@ opt.signcolumn = "yes"
 opt.cursorline = true
 opt.scrolloff = 8
 opt.sidescrolloff = 8
+opt.showmode = false                  -- lualine already shows mode
+opt.cmdheight = 0                     -- cleaner UI; cmd line appears only when needed
+opt.laststatus = 3                    -- single global statusline
+opt.colorcolumn = "100"
+opt.fillchars = { eob = " " }         -- hide '~' on empty lines
 
 -- Splits
 opt.splitright = true
@@ -34,6 +39,10 @@ opt.swapfile = false
 opt.updatetime = 250
 opt.timeoutlen = 300
 opt.mouse = "a"
+opt.completeopt = { "menu", "menuone", "noselect" }
+opt.wrap = false
+opt.breakindent = true
+opt.confirm = true                    -- :q on dirty buf prompts instead of erroring
 
 -- Whitespace
 opt.list = true

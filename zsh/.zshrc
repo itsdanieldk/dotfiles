@@ -33,6 +33,10 @@ plugins=(
 
 source $ZSH/oh-my-zsh.sh
 
+# Completion ergonomics
+zstyle ':completion:*' menu no                                                  # required by fzf-tab
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*' # case-insensitive
+
 # fzf-tab: colored completions and previews. Must load after compinit (which OMZ
 # runs above) and before any widget-wrapping plugins (autosuggestions / syntax-
 # highlighting) — handled by plugin order in the plugins=() array above.
@@ -73,7 +77,7 @@ alias dcr="docker compose restart"
 alias ls="eza --icons"
 alias ll="eza -la --icons --git"
 alias lt="eza --tree --icons --level=2"
-alias cat="bat --paging=never"
+alias cat="bat --paging=never --style=plain"
 alias lg="lazygit"
 alias ld="lazydocker"
 

@@ -20,7 +20,7 @@ brew "fastfetch"
 brew "btop"
 brew "dust"
 brew "yq"
-brew "tldr"
+brew "tealdeer"
 brew "tree"
 
 # --- Git & Dev Tools ---
@@ -74,4 +74,3 @@ cask "philips-hue-sync"
 
 # --- Games ---
 cask "steam"
-cask "battle-net"

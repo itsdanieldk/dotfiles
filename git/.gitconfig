@@ -36,6 +36,14 @@
 [diff]
     algorithm = histogram
     colorMoved = default
+[grep]
+    lineNumber = true
+[log]
+    follow = true
+[blame]
+    markUnreachableLines = true
+[help]
+    autocorrect = prompt
 [branch]
     sort = -committerdate
 [tag]
