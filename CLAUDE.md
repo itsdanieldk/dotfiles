@@ -9,7 +9,7 @@ macOS dotfiles managed with GNU Stow. Each top-level directory (bat, btop, claud
 ## Commands
 
 - Syntax-check the install script: `zsh -n install`
-- Re-stow a single package: `stow -d ~/dotfiles -R <package>`
+- Re-stow a single package: `stow -d ~/dotfiles --no-folding -R <package>`
 - Run the full bootstrap: `./install` (interactive, prompts y/N for each step; use `./install --yes` for non-interactive, `./install --adopt` to allow stow conflict adoption)
 
 ## Shell
@@ -42,3 +42,4 @@ Create a directory whose internal structure mirrors the home-relative path (e.g.
   4. `source ~/.p10k.zsh`
   5. `setopt aliases` (required — p10k leaks `noaliases` from its config)
 - **Brewfile format** uses `tap "pkg"`, `brew "pkg"`, or `cask "pkg"` — the install script's regex parser depends on this exact quoting.
+- **Stow uses `--no-folding`** (set in `install` and `.stowrc`): target directories are created as real directories and only tracked leaf files are symlinked. This stops stow from folding an app-managed directory (`~/.ssh`, `~/.claude`, `~/.config/btop`) into a single symlink that points into the repo — which would otherwise let app runtime state and secrets (e.g. `~/.claude/.credentials.json`) get written *inside* the repo. Tradeoff: adding a *new* file to an existing package requires a re-stow to link it. `.gitignore` also defensively ignores everything under `ssh/.ssh/` and `claude/.claude/` except the tracked configs.

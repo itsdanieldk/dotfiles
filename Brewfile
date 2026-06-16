@@ -54,7 +54,7 @@ cask "yaak"
 
 # --- AI Apps ---
 cask "claude"
-cask "claude-code"
+cask "claude-code@latest"
 cask "codex"
 cask "codex-app"
 cask "copilot-cli"
@@ -67,6 +67,7 @@ cask "discord"
 # --- System & Hardware ---
 cask "macs-fan-control"
 cask "monitorcontrol"
+cask "thaw"
 cask "logi-options+"
 cask "focusrite-control-2"
 cask "onyx"

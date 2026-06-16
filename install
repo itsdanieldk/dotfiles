@@ -162,6 +162,10 @@ if ask "Apply macOS Finder defaults?"; then
     defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
     # Disable the "Are you sure you want to open this application?" dialog
     defaults write com.apple.LaunchServices LSQuarantine -bool false
+    # Don't write .DS_Store metadata on network or USB volumes
+    # (applies to volumes mounted after this runs)
+    defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+    defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
     # Show ~/Library
     chflags nohidden ~/Library
     killall Finder 2>/dev/null || true
@@ -188,10 +192,11 @@ if ask "Apply macOS Dock defaults?"; then
 fi
 
 if ask "Apply macOS keyboard defaults?"; then
-    # Blazing fast key repeat (essential for Vim-style navigation)
-    defaults write NSGlobalDomain KeyRepeat -int 2
-    # Short delay until key repeat kicks in
-    defaults write NSGlobalDomain InitialKeyRepeat -int 15
+    # Blazing fast key repeat — 1 is below the System Settings "Fast" minimum (2).
+    # Takes effect after logout/login. Essential for Vim-style navigation.
+    defaults write NSGlobalDomain KeyRepeat -int 1
+    # Shortest delay before repeat kicks in — 10 is below the UI "Short" minimum (15).
+    defaults write NSGlobalDomain InitialKeyRepeat -int 10
     # Disable auto-correct
     defaults write NSGlobalDomain NSAutoCorrectionEnabled -bool false
     # Disable smart quotes (they break code)
@@ -245,12 +250,12 @@ fi
 if command -v stow &>/dev/null; then
     if ask "Stow dotfiles?"; then
         for dir in ${DOTFILES}/*(/); do
-            if stow -d ${DOTFILES} -n -R ${dir:t} 2>/dev/null; then
-                stow -d ${DOTFILES} -R ${dir:t}
+            if stow -d ${DOTFILES} --no-folding -n -R ${dir:t} 2>/dev/null; then
+                stow -d ${DOTFILES} --no-folding -R ${dir:t}
                 ok "${dir:t} stowed."
             elif $ALLOW_ADOPT; then
                 warn "${dir:t} has conflicts; --adopt set, resolving..."
-                stow -d ${DOTFILES} --adopt -R ${dir:t}
+                stow -d ${DOTFILES} --no-folding --adopt -R ${dir:t}
                 warn "Adopted ${dir:t}: review 'git diff' for clobbered tracked files."
             else
                 err "${dir:t} has conflicts with files in \$HOME."
@@ -261,6 +266,18 @@ if command -v stow &>/dev/null; then
     fi
 else
     warn "stow not found, skipping dotfile linking."
+fi
+
+# --- btop theme ---
+# btop.conf is machine-local (btop rewrites it on every exit) so it isn't tracked.
+# Seed just the theme on fresh installs; existing configs are left untouched.
+if command -v btop &>/dev/null; then
+    btop_conf="${HOME}/.config/btop/btop.conf"
+    if [[ ! -f $btop_conf ]]; then
+        mkdir -p "${btop_conf:h}"
+        print 'color_theme = "catppuccin_mocha"' > "$btop_conf"
+        ok "btop theme seeded (catppuccin_mocha)."
+    fi
 fi
 
 ok "All done!"

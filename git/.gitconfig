@@ -59,6 +59,3 @@
     recent = branch --sort=-committerdate --format='%(committerdate:relative)%09%(refname:short)'
 [column]
     ui = auto
-[maintenance]
-    auto = true
-    strategy = incremental

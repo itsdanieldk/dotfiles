@@ -29,7 +29,7 @@ Flags:
 | Package | Contents |
 |---------|----------|
 | `bat` | bat config (Catppuccin Mocha theme) |
-| `btop` | btop Catppuccin Mocha theme (set `color_theme = "catppuccin_mocha"` in `~/.config/btop/btop.conf` on first run) |
+| `btop` | btop Catppuccin Mocha theme (the install script seeds `color_theme = "catppuccin_mocha"` for you) |
 | `claude` | Claude Code settings and statusline |
 | `git` | `.gitconfig` with delta pager, global gitignore |
 | `hushlogin` | Suppresses "Last login" message |
@@ -55,9 +55,9 @@ Flags:
 
 The install script can configure:
 
-- **Finder** — show hidden files, extensions, path/status bar, list view, folders on top, search current folder
+- **Finder** — show hidden files, extensions, path/status bar, list view, folders on top, search current folder, no `.DS_Store` on network/USB
 - **Dock** — auto-hide, minimize to app icon, hide recent apps, no space rearranging
-- **Keyboard** — fast key repeat, no auto-correct/smart quotes/smart dashes, full keyboard access
+- **Keyboard** — fastest key repeat (below the UI minimum), no auto-correct/smart quotes/smart dashes, full keyboard access
 - **Screenshots** — save to `~/Pictures/Screenshots`, PNG format, no shadow
 - **Trackpad** — three-finger drag
 - **Misc** — expanded save/print panels by default
@@ -65,5 +65,5 @@ The install script can configure:
 ## Re-stow
 
 ```zsh
-stow -d ~/dotfiles -R <package>
+stow -d ~/dotfiles --no-folding -R <package>
 ```

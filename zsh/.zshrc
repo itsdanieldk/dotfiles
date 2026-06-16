@@ -85,7 +85,7 @@ alias ld="lazydocker"
 alias hs='history 1 | grep --color=auto'
 
 # fzf
-source <(fzf --zsh)
+command -v fzf >/dev/null && source <(fzf --zsh)
 export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
@@ -100,10 +100,10 @@ export FZF_DEFAULT_OPTS=" \
 --color=border:#313244,label:#cdd6f4"
 
 # zoxide (smart cd)
-eval "$(zoxide init zsh)"
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
 
 # direnv (per-directory env)
-eval "$(direnv hook zsh)"
+command -v direnv >/dev/null && eval "$(direnv hook zsh)"
 
 # pnpm
 export PNPM_HOME="$HOME/Library/pnpm"

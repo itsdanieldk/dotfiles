@@ -1,6 +1,11 @@
 /.claude
 
-# Defensive: never commit ssh keys via the ssh stow package
-ssh/.ssh/id_*
-ssh/.ssh/*.pub
-ssh/.ssh/known_hosts*
+# SSH: track only the config — never keys, known_hosts, or other runtime files.
+ssh/.ssh/*
+!ssh/.ssh/config
+
+# Claude Code: track only settings + statusline — never runtime state or
+# credentials.
+claude/.claude/*
+!claude/.claude/settings.json
+!claude/.claude/statusline.sh
