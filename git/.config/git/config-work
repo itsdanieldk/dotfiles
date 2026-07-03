@@ -1,0 +1,5 @@
+# Work identity — activated by the [includeIf "gitdir:~/work/"] rule in
+# ~/.gitconfig for any repository located under ~/work/.
+[user]
+    email = dala@clever.dk
+    name = Daniel Larsen

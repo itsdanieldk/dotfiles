@@ -33,6 +33,7 @@ brew "lazydocker"
 brew "direnv"
 brew "node"
 brew "pnpm"
+brew "elixir"
 
 # --- Cloud & Containers ---
 brew "azure-cli"
@@ -71,7 +72,7 @@ cask "thaw"
 cask "logi-options+"
 cask "focusrite-control-2"
 cask "onyx"
-cask "philips-hue-sync"
+#cask "philips-hue-sync"
 
 # --- Games ---
-cask "steam"
+#cask "steam"

@@ -22,8 +22,11 @@
 [push]
     autoSetupRemote = true
     followTags = true
+[commit]
+    verbose = true
 [fetch]
     prune = true
+    prunetags = true
     fsckobjects = true
 [transfer]
     fsckobjects = true
@@ -33,6 +36,7 @@
     conflictstyle = zdiff3
 [rerere]
     enabled = true
+    autoupdate = true
 [diff]
     algorithm = histogram
     colorMoved = default
@@ -50,6 +54,7 @@
     sort = -version:refname
 [rebase]
     autoStash = true
+    updateRefs = true
 [alias]
     lg = log --graph --oneline --decorate --all
     last = log -1 HEAD --stat
@@ -59,3 +64,7 @@
     recent = branch --sort=-committerdate --format='%(committerdate:relative)%09%(refname:short)'
 [column]
     ui = auto
+# Work identity: applies to any repo under ~/work/ (overrides the personal
+# [user] above). The override file is a stow-managed tracked file.
+[includeIf "gitdir:~/work/"]
+    path = ~/.config/git/config-work
