@@ -34,6 +34,7 @@ brew "direnv"
 brew "node"
 brew "pnpm"
 brew "elixir"
+brew "elm"
 
 # --- Cloud & Containers ---
 brew "azure-cli"
