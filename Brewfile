@@ -62,7 +62,6 @@ cask "obsidian"
 cask "claude"
 cask "claude-code@latest"
 cask "codex"
-cask "codex-app"
 cask "copilot-cli"
 
 # --- Browsers & Media ---
