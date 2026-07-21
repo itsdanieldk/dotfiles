@@ -45,6 +45,7 @@ brew "ollama"
 # --- Fonts ---
 cask "font-fira-code-nerd-font"
 cask "font-fira-sans"
+cask "font-jetbrains-mono-nerd-font"
 
 # --- Development ---
 cask "jetbrains-toolbox"
@@ -53,6 +54,9 @@ cask "visual-studio-code"
 cask "dotnet-sdk10"
 cask "docker-desktop"
 cask "yaak"
+
+# --- Notes & Productivity ---
+cask "obsidian"
 
 # --- AI Apps ---
 cask "claude"
@@ -73,7 +77,7 @@ cask "thaw"
 cask "logi-options+"
 cask "focusrite-control-2"
 cask "onyx"
-#cask "philips-hue-sync"
+cask "philips-hue-sync"
 
 # --- Games ---
-#cask "steam"
+cask "steam"

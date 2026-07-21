@@ -24,6 +24,19 @@ Flags:
 - `--yes` / `-y` — non-interactive (auto-yes to all prompts)
 - `--adopt` — allow stow to resolve conflicts by adopting `$HOME` files into the repo (**destructive**: overwrites tracked configs; review `git diff` after)
 
+## Homebrew Packages
+
+Installed from the [`Brewfile`](Brewfile) (step 3). Highlights:
+
+- **CLI** — modern replacements (`ripgrep`, `fd`, `bat`, `eza`, `fzf`, `zoxide`), plus `jq`/`yq`, `btop`, `dust`, `tealdeer`, `tree`, `fastfetch`
+- **Git & dev** — `gh`, `git-delta`, `lazygit`, `lazydocker`
+- **Runtimes** — `node`, `pnpm`, `elixir`, `elm`, with `direnv` for per-project env
+- **Development apps** — Kitty, VS Code, JetBrains Toolbox, Docker Desktop, .NET SDK, Yaak
+- **Notes & productivity** — Obsidian
+- **AI** — Claude, Claude Code, Codex, Copilot CLI, `ollama`
+- **Browsers & media** — Chrome, IINA, Discord
+- **System & hardware** — MonitorControl, macs-fan-control, logi-options+, Focusrite Control, Philips Hue Sync, OnyX, thaw
+
 ## Stow Packages
 
 | Package | Contents |
@@ -33,7 +46,7 @@ Flags:
 | `claude` | Claude Code settings and statusline |
 | `git` | `.gitconfig` with delta pager, global gitignore |
 | `hushlogin` | Suppresses "Last login" message |
-| `kitty` | Kitty terminal (Catppuccin Mocha, FiraCode Nerd Font) |
+| `kitty` | Kitty terminal (Catppuccin Mocha, JetBrains Mono Nerd Font) |
 | `lazygit` | lazygit config (Catppuccin Mocha theme, delta pager) |
 | `nvim` | Neovim (lazy.nvim, Treesitter, Telescope, Catppuccin Mocha) |
 | `ssh` | SSH config with macOS Keychain, hardened algorithms |
