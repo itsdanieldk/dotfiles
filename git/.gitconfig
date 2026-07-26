@@ -1,8 +1,20 @@
+# ============================================================
+# Identity
+# ============================================================
+# Personal default. Repos under ~/work/ are overridden by the [includeIf] at
+# the bottom of this file, which must stay after this block to take effect.
 [user]
     email = hey@itsdaniel.dk
     name = itsdanieldk
 [credential]
     helper = osxkeychain
+
+
+# ============================================================
+# Core & pager
+# ============================================================
+# delta is the pager. This [delta] section is the single source of truth —
+# lazygit invokes bare `delta`, which reads these settings itself.
 [core]
     editor = nvim
     pager = delta
@@ -14,7 +26,12 @@
     navigate = true
     side-by-side = true
     line-numbers = true
-    syntax-theme = Catppuccin Mocha
+    syntax-theme = Catppuccin Frappe
+
+
+# ============================================================
+# Workflow defaults
+# ============================================================
 [init]
     defaultBranch = main
 [pull]
@@ -28,15 +45,35 @@
     prune = true
     prunetags = true
     fsckobjects = true
+
+
+# ============================================================
+# Object integrity
+# ============================================================
+# Verify objects on the way in and out; catches corruption and some classes of
+# malicious history. Costs a little time on large fetches.
 [transfer]
     fsckobjects = true
 [receive]
     fsckobjects = true
+
+
+# ============================================================
+# Merge & rebase
+# ============================================================
 [merge]
     conflictstyle = zdiff3
 [rerere]
     enabled = true
     autoupdate = true
+[rebase]
+    autoStash = true
+    updateRefs = true
+
+
+# ============================================================
+# Diff & display
+# ============================================================
 [diff]
     algorithm = histogram
     colorMoved = default
@@ -52,9 +89,13 @@
     sort = -committerdate
 [tag]
     sort = -version:refname
-[rebase]
-    autoStash = true
-    updateRefs = true
+[column]
+    ui = auto
+
+
+# ============================================================
+# Aliases
+# ============================================================
 [alias]
     lg = log --graph --oneline --decorate --all
     last = log -1 HEAD --stat
@@ -62,9 +103,13 @@
     today = "!git log --since=midnight --author=\"$(git config user.name)\" --oneline"
     amend = commit --amend --no-edit
     recent = branch --sort=-committerdate --format='%(committerdate:relative)%09%(refname:short)'
-[column]
-    ui = auto
-# Work identity: applies to any repo under ~/work/ (overrides the personal
-# [user] above). The override file is a stow-managed tracked file.
-[includeIf "gitdir:~/work/"]
+
+
+# ============================================================
+# Conditional includes
+# ============================================================
+# Work identity for any repo under ~/work/, overriding the [user] block above.
+# Must stay last. 'gitdir/i' is the case-insensitive form — required on macOS,
+# where the filesystem is case-insensitive and ~/Work would otherwise miss.
+[includeIf "gitdir/i:~/work/"]
     path = ~/.config/git/config-work

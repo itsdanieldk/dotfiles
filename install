@@ -1,18 +1,25 @@
 #!/usr/bin/env zsh
 
+
+# ============================================================
+# Setup
+# ============================================================
 set -eu
 setopt pipefail
 
 DOTFILES=${0:A:h}
 
-# Colors
+# Colored log helpers
 autoload -U colors && colors
 info()  { print -P "%F{blue}[INFO]%f  $1" }
 ok()    { print -P "%F{green}[OK]%f    $1" }
 warn()  { print -P "%F{yellow}[WARN]%f  $1" }
 err()   { print -P "%F{red}[ERROR]%f $1" }
 
-# Flags
+
+# ============================================================
+# Flags & prompting
+# ============================================================
 AUTOYES=false
 ALLOW_ADOPT=false
 for arg in "$@"; do
@@ -38,29 +45,69 @@ ask() {
     print
 }
 
-# --- Xcode Command Line Tools ---
+
+# ============================================================
+# Xcode Command Line Tools
+# ============================================================
 if ! xcode-select -p &>/dev/null; then
     if ask "Install Xcode Command Line Tools?"; then
         info "Installing Xcode Command Line Tools..."
         xcode-select --install
+        # Bounded wait. `xcode-select --install` returns as soon as it launches
+        # the GUI installer, so a cancelled dialog or failed download would
+        # otherwise spin here forever — worst under --yes, where nothing is
+        # watching. The `(( ))` must stay inside `if`: it returns non-zero when
+        # false, which would trip `set -e` on its own.
+        waited=0
         until xcode-select -p &>/dev/null; do
+            if (( waited >= 900 )); then
+                warn "Xcode CLT still absent after 15m; continuing without it."
+                break
+            fi
             sleep 5
+            waited=$(( waited + 5 ))
         done
-        ok "Xcode Command Line Tools installed."
+        xcode-select -p &>/dev/null && ok "Xcode Command Line Tools installed."
     fi
 fi
 
-# --- Homebrew ---
+
+# ============================================================
+# Homebrew
+# ============================================================
 if ! command -v brew &>/dev/null; then
     if ask "Install Homebrew?"; then
         info "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+        # Apple Silicon installs to /opt/homebrew, Intel to /usr/local.
+        for brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+            [[ -x $brew_bin ]] && { eval "$($brew_bin shellenv zsh)"; break }
+        done
         ok "Homebrew installed."
     fi
 fi
 
-# --- Brewfile ---
+
+# ============================================================
+# Brewfile packages
+# ============================================================
+# Reads from FD 3, not stdin: ask()'s `read -q` consumes stdin, so a plain
+# `< Brewfile` would let every prompt eat the next package line.
+
+# Return 0 if $1 is a tap that still needs trusting. Homebrew 6+ stores trust
+# separately from the tap list, so `brew tap` can list a tap that brew still
+# refuses to load from. Greps rather than using jq: taps are processed before
+# jq gets installed. The quoted exact match matters — searching for
+# "azure/kubelogin" must not match the entry "azure/kubelogin/kubelogin".
+brew_needs_trust() {
+    # Older Homebrew has no trust concept; nothing to do.
+    brew trust --help &>/dev/null || return 1
+    local f="${XDG_CONFIG_HOME:-$HOME/.config}/homebrew/trust.json"
+    [[ -f $f ]] || f="${HOME}/.homebrew/trust.json"
+    [[ -f $f ]] || return 0
+    grep -q "\"$1\"" "$f" && return 1 || return 0
+}
+
 if command -v brew &>/dev/null; then
     while IFS= read -r line <&3; do
         [[ -z $line || $line == \#* ]] && continue
@@ -71,7 +118,18 @@ if command -v brew &>/dev/null; then
         case $type in
             tap)
                 if brew tap | grep -qx "$pkg"; then
-                    info "tap '${pkg}' already added, skipping."
+                    # Present is not the same as usable: Homebrew 6+ refuses to
+                    # load anything from an untrusted third-party tap, and trust
+                    # is separate state that `brew tap` does not grant.
+                    if brew_needs_trust "$pkg"; then
+                        if ask "Tap '${pkg}' is added but NOT trusted — trust it?"; then
+                            brew trust --tap "$pkg" || warn "Failed to trust ${pkg}, continuing..."
+                        else
+                            warn "${pkg} left untrusted; its formulae will fail to install."
+                        fi
+                    else
+                        info "tap '${pkg}' already added and trusted, skipping."
+                    fi
                     continue
                 fi
                 ;;
@@ -88,10 +146,27 @@ if command -v brew &>/dev/null; then
                 fi
                 ;;
         esac
-        if ask "Install ${type} '${pkg}'?"; then
+        # Taps get their own wording: adding one also grants it trust, which is
+        # a security decision rather than just an install step.
+        if [[ $type == tap ]]; then
+            prompt="Add and trust tap '${pkg}'?"
+        else
+            prompt="Install ${type} '${pkg}'?"
+        fi
+        if ask "$prompt"; then
             case $type in
-                tap)  brew tap "$pkg" || warn "Failed to tap ${pkg}, continuing..." ;;
-                brew) brew install "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
+                tap)
+                    if brew tap "$pkg"; then
+                        brew trust --tap "$pkg" || warn "Tapped ${pkg} but failed to trust it; its formulae will fail to install."
+                    else
+                        warn "Failed to tap ${pkg}, continuing..."
+                    fi
+                    ;;
+                # --formula is explicit because some taps ship a formula AND a
+                # cask under the same name (azure/azd does). A bare
+                # `brew install` resolves to the cask, which then never matches
+                # the `brew list --formula` check above — re-prompting forever.
+                brew) brew install --formula "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
                 cask) brew install --cask "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
             esac
         fi
@@ -104,7 +179,40 @@ if command -v brew &>/dev/null; then
     fi
 fi
 
-# --- Oh My Zsh ---
+
+# ============================================================
+# .NET global tools
+# ============================================================
+# Global (-g) tools have no manifest file. dotnet-tools.json is the *local*
+# manifest format — it belongs inside a project and is consumed by
+# `dotnet tool restore`, which is a different mechanism. Global tools install
+# into ~/.dotnet/tools, which .zprofile puts on PATH.
+# Entries are NuGet package IDs; note the ID and the command it provides can
+# differ (dotnet-outdated-tool installs the `dotnet-outdated` command).
+if command -v dotnet &>/dev/null; then
+    dotnet_tools=(
+        dotnet-ef              # EF Core migrations / scaffolding
+        dotnet-outdated-tool   # report outdated NuGet references
+    )
+    # One listing reused for every check, rather than one call per tool.
+    installed_tools=$(dotnet tool list -g 2>/dev/null) || installed_tools=""
+    for tool in $dotnet_tools; do
+        # Trailing space anchors the match so 'dotnet-ef' can't match a
+        # longer package ID that merely starts with it.
+        if print -r -- "$installed_tools" | grep -qi "^${tool} "; then
+            info "dotnet tool '${tool}' already installed, skipping."
+            continue
+        fi
+        if ask "Install dotnet tool '${tool}'?"; then
+            dotnet tool install -g "$tool" || warn "Failed to install ${tool}, continuing..."
+        fi
+    done
+fi
+
+
+# ============================================================
+# Oh My Zsh
+# ============================================================
 if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
     if ask "Install Oh My Zsh?"; then
         info "Installing Oh My Zsh..."
@@ -113,8 +221,13 @@ if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
     fi
 fi
 
-# --- Oh My Zsh Custom Themes ---
+
+# ============================================================
+# Oh My Zsh theme & plugins
+# ============================================================
 ZSH_CUSTOM=${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}
+
+# --- Theme ---
 typeset -A custom_themes=(
     powerlevel10k  https://github.com/romkatv/powerlevel10k.git
 )
@@ -127,7 +240,7 @@ for theme url in ${(kv)custom_themes}; do
     fi
 done
 
-# --- Oh My Zsh Custom Plugins ---
+# --- Plugins ---
 typeset -A custom_plugins=(
     zsh-autosuggestions  https://github.com/zsh-users/zsh-autosuggestions.git
     zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting.git
@@ -136,13 +249,20 @@ typeset -A custom_plugins=(
 for plugin url in ${(kv)custom_plugins}; do
     if [[ ! -d ${ZSH_CUSTOM}/plugins/${plugin} ]]; then
         if ask "Install oh-my-zsh plugin '${plugin}'?"; then
-            git clone "$url" "${ZSH_CUSTOM}/plugins/${plugin}"
+            git clone --depth=1 "$url" "${ZSH_CUSTOM}/plugins/${plugin}"
             ok "${plugin} installed."
         fi
     fi
 done
 
-# --- macOS Defaults ---
+
+# ============================================================
+# macOS defaults
+# ============================================================
+# Each group is prompted separately. Finder/Dock changes are applied by the
+# killall at the end of their block; keyboard changes need a logout/login.
+
+# --- Finder ---
 if ask "Apply macOS Finder defaults?"; then
     # Show all file extensions
     defaults write NSGlobalDomain AppleShowAllExtensions -bool true
@@ -160,8 +280,6 @@ if ask "Apply macOS Finder defaults?"; then
     defaults write com.apple.finder _FXSortFoldersFirst -bool true
     # Search the current folder by default
     defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
-    # Disable the "Are you sure you want to open this application?" dialog
-    defaults write com.apple.LaunchServices LSQuarantine -bool false
     # Don't write .DS_Store metadata on network or USB volumes
     # (applies to volumes mounted after this runs)
     defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
@@ -172,6 +290,15 @@ if ask "Apply macOS Finder defaults?"; then
     ok "Finder defaults applied."
 fi
 
+# --- Gatekeeper ---
+# Deliberately its own prompt, and off the default path: this weakens a
+# security control rather than tweaking an appearance setting.
+if ask "SECURITY: disable the Gatekeeper 'downloaded from the internet' warning?"; then
+    defaults write com.apple.LaunchServices LSQuarantine -bool false
+    warn "LSQuarantine disabled — macOS will no longer warn on first-run of downloaded apps."
+fi
+
+# --- Dock ---
 if ask "Apply macOS Dock defaults?"; then
     # Minimize windows into their application icon
     defaults write com.apple.dock minimize-to-application -bool true
@@ -191,12 +318,14 @@ if ask "Apply macOS Dock defaults?"; then
     ok "Dock defaults applied."
 fi
 
+# --- Keyboard ---
 if ask "Apply macOS keyboard defaults?"; then
-    # Blazing fast key repeat — 1 is below the System Settings "Fast" minimum (2).
-    # Takes effect after logout/login. Essential for Vim-style navigation.
-    defaults write NSGlobalDomain KeyRepeat -int 1
-    # Shortest delay before repeat kicks in — 10 is below the UI "Short" minimum (15).
-    defaults write NSGlobalDomain InitialKeyRepeat -int 10
+    # Fast key repeat — units are 15ms ticks, so 1.5 is 22.5ms between repeats.
+    # Below the System Settings "Fast" minimum (2); fractional values are
+    # undocumented but honored. Takes effect after logout/login.
+    defaults write NSGlobalDomain KeyRepeat -float 1.5
+    # Delay before repeat kicks in — 12 is 180ms, below the UI "Short" minimum (15).
+    defaults write NSGlobalDomain InitialKeyRepeat -int 12
     # Disable auto-correct
     defaults write NSGlobalDomain NSAutoCorrectionEnabled -bool false
     # Disable smart quotes (they break code)
@@ -216,6 +345,7 @@ if ask "Apply macOS keyboard defaults?"; then
     ok "Keyboard defaults applied."
 fi
 
+# --- Screenshots ---
 if ask "Apply macOS screenshot defaults?"; then
     # Save screenshots to ~/Pictures/Screenshots instead of Desktop
     defaults write com.apple.screencapture location -string "${HOME}/Pictures/Screenshots"
@@ -228,14 +358,18 @@ if ask "Apply macOS screenshot defaults?"; then
     ok "Screenshot defaults applied."
 fi
 
+# --- Trackpad ---
 if ask "Apply macOS trackpad defaults?"; then
     # Enable tap to click
     #defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
-    # Three-finger drag
+    # Three-finger drag. Built-in trackpad and Bluetooth Magic Trackpad are
+    # separate domains — writing only the first misses external trackpads.
     defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerDrag -bool true
+    defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadThreeFingerDrag -bool true
     ok "Trackpad defaults applied."
 fi
 
+# --- Misc power-user ---
 if ask "Apply miscellaneous power-user defaults?"; then
     # Expand save panels by default
     defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
@@ -246,7 +380,10 @@ if ask "Apply miscellaneous power-user defaults?"; then
     ok "Miscellaneous defaults applied."
 fi
 
-# --- Stow ---
+
+# ============================================================
+# Stow
+# ============================================================
 if command -v stow &>/dev/null; then
     if ask "Stow dotfiles?"; then
         for dir in ${DOTFILES}/*(/); do
@@ -268,6 +405,10 @@ else
     warn "stow not found, skipping dotfile linking."
 fi
 
+
+# ============================================================
+# Post-stow seeding
+# ============================================================
 # --- btop theme ---
 # btop.conf is machine-local (btop rewrites it on every exit) so it isn't tracked.
 # Seed just the theme on fresh installs; existing configs are left untouched.
@@ -275,8 +416,8 @@ if command -v btop &>/dev/null; then
     btop_conf="${HOME}/.config/btop/btop.conf"
     if [[ ! -f $btop_conf ]]; then
         mkdir -p "${btop_conf:h}"
-        print 'color_theme = "catppuccin_mocha"' > "$btop_conf"
-        ok "btop theme seeded (catppuccin_mocha)."
+        print 'color_theme = "catppuccin_frappe"' > "$btop_conf"
+        ok "btop theme seeded (catppuccin_frappe)."
     fi
 fi
 

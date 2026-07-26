@@ -1,15 +1,53 @@
+# ============================================================
+# Global gitignore
+# ============================================================
+# Applies to every repository on this machine. Git picks this up automatically
+# from ~/.config/git/ignore — no core.excludesfile setting needed.
+# Repo-specific ignores for the dotfiles repo itself live in its .gitignore.
+#
+# NOTE: gitignore has no trailing-comment syntax. '#' only starts a comment at
+# the start of a line — appending one to a pattern makes it part of the pattern
+# and silently stops it matching. Keep every comment on its own line.
+
+
+# ============================================================
+# macOS
+# ============================================================
 .DS_Store
 .AppleDouble
 .LSOverride
 ._*
 .Spotlight-V100
 .Trashes
+
+
+# ============================================================
+# Claude Code
+# ============================================================
+# Per-project machine-local settings — never shared.
 **/.claude/settings.local.json
 
-# IDE / Editor
-.vs/
-.idea/
 
-# .NET user-level files
+# ============================================================
+# IDE / Editor
+# ============================================================
+# Visual Studio
+.vs/
+# JetBrains (Rider, etc)
+.idea/
+# Ionide — F# support for VS Code
+.ionide/
+
+
+# ============================================================
+# .NET
+# ============================================================
+# Per-user project settings. '*.user' also covers Rider's *.DotSettings.user.
 *.user
 *.suo
+# FAKE — F# Make build cache
+.fake/
+
+# Deliberately NOT ignored globally: bin/ and obj/. They belong in a project's
+# own .gitignore, which `dotnet new gitignore` generates. A global rule would
+# also hit non-.NET repos that legitimately track a bin/ directory of scripts.

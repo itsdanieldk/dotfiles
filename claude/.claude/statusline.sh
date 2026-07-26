@@ -24,21 +24,20 @@ white='\033[38;2;220;220;220m'
 dim='\033[2m'
 reset='\033[0m'
 
-# Format token counts (e.g., 50k / 200k)
+# Format token counts (e.g., 50k / 200k). Integer math only — this runs on
+# every render, so it deliberately avoids forking awk.
 format_tokens() {
-    local num=$1
+    local num=$1 whole frac
     if [ "$num" -ge 1000000 ]; then
-        awk "BEGIN {v=sprintf(\"%.1f\",$num/1000000)+0; if(v==int(v)) printf \"%dm\",v; else printf \"%.1fm\",v}"
+        whole=$(( num / 1000000 ))
+        frac=$(( (num % 1000000 + 50000) / 100000 ))
+        if [ "$frac" -ge 10 ]; then whole=$(( whole + 1 )); frac=0; fi
+        if [ "$frac" -eq 0 ]; then printf "%dm" "$whole"; else printf "%d.%dm" "$whole" "$frac"; fi
     elif [ "$num" -ge 1000 ]; then
-        awk "BEGIN {printf \"%.0fk\", $num / 1000}"
+        printf "%dk" $(( (num + 500) / 1000 ))
     else
         printf "%d" "$num"
     fi
-}
-
-# Format number with commas (e.g., 134,938)
-format_commas() {
-    printf "%'d" "$1"
 }
 
 # Return color escape based on usage percentage
@@ -71,35 +70,58 @@ version_gt() {
     return 1
 }
 # ===== Extract data from JSON =====
-model_name=$(echo "$input" | jq -r '.model.display_name // "Claude"')
-model_name=$(echo "$model_name" | sed 's/ *(\([0-9.]*[kKmM]*\) context)/ \1/')  # "(1M context)" → "1M"
+# One jq pass for every field we need. This previously cost 11 separate jq
+# processes; the statusline re-renders constantly, so each fork is paid often.
+# Every branch uses `// ""` (never `// empty`) so a missing key still emits a
+# line and the positional reads below stay aligned.
+{
+    IFS= read -r model_name
+    IFS= read -r size
+    IFS= read -r input_tokens
+    IFS= read -r cache_create
+    IFS= read -r cache_read
+    IFS= read -r stdin_effort
+    IFS= read -r cwd
+    IFS= read -r builtin_five_hour_pct
+    IFS= read -r builtin_five_hour_reset
+    IFS= read -r builtin_seven_day_pct
+    IFS= read -r builtin_seven_day_reset
+} < <(printf '%s' "$input" | jq -r '
+    (.model.display_name // "Claude"),
+    (.context_window.context_window_size // 200000),
+    (.context_window.current_usage.input_tokens // 0),
+    (.context_window.current_usage.cache_creation_input_tokens // 0),
+    (.context_window.current_usage.cache_read_input_tokens // 0),
+    (.effort.level // ""),
+    (.cwd // ""),
+    (.rate_limits.five_hour.used_percentage // ""),
+    (.rate_limits.five_hour.resets_at // ""),
+    (.rate_limits.seven_day.used_percentage // ""),
+    (.rate_limits.seven_day.resets_at // "")' 2>/dev/null)
 
-# Context window
-size=$(echo "$input" | jq -r '.context_window.context_window_size // 200000')
-[ "$size" -eq 0 ] 2>/dev/null && size=200000
+# Guard every numeric field: malformed input would otherwise reach the
+# arithmetic below and abort mid-render.
+[ -z "$model_name" ] && model_name="Claude"
+case $size         in ''|*[!0-9]*) size=200000 ;; esac
+case $input_tokens in ''|*[!0-9]*) input_tokens=0 ;; esac
+case $cache_create in ''|*[!0-9]*) cache_create=0 ;; esac
+case $cache_read   in ''|*[!0-9]*) cache_read=0 ;; esac
+[ "$size" -eq 0 ] && size=200000
 
-# Token usage
-input_tokens=$(echo "$input" | jq -r '.context_window.current_usage.input_tokens // 0')
-cache_create=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0')
-cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
+# "Name (1M context)" → "Name 1M", without forking sed
+if [[ $model_name =~ ^(.*[^\ ])\ *\(([0-9.]+[kKmM]*)\ context\)$ ]]; then
+    model_name="${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+fi
+
 current=$(( input_tokens + cache_create + cache_read ))
 
 used_tokens=$(format_tokens $current)
 total_tokens=$(format_tokens $size)
 
-if [ "$size" -gt 0 ]; then
-    pct_used=$(( current * 100 / size ))
-else
-    pct_used=0
-fi
-pct_remain=$(( 100 - pct_used ))
-
-used_comma=$(format_commas $current)
-remain_comma=$(format_commas $(( size - current )))
+pct_used=$(( current * 100 / size ))
 
 settings_path="$claude_config_dir/settings.json"
 effort_level=""
-stdin_effort=$(echo "$input" | jq -r '.effort.level // empty' 2>/dev/null)
 if [ -n "$stdin_effort" ]; then
     effort_level="$stdin_effort"
 elif [ -n "$CLAUDE_CODE_EFFORT_LEVEL" ]; then
@@ -110,13 +132,20 @@ elif [ -f "$settings_path" ]; then
 fi
 [ -z "$effort_level" ] && effort_level="medium"
 
+# ===== Cache location =====
+# $TMPDIR is per-user and mode 0700 on macOS. A shared /tmp/claude path is
+# predictable and pre-creatable by another local user; TMPDIR avoids that while
+# still being shared across this user's Claude Code instances (the actual goal).
+cache_dir="${TMPDIR:-/tmp}/claude-statusline"
+mkdir -p "$cache_dir" 2>/dev/null
+
 # ===== Claude CLI version (cached, 1h TTL) =====
-cli_version_cache="/tmp/claude/statusline-cli-version"
+cli_version_cache="$cache_dir/cli-version"
 cli_version=""
 cli_version_max_age=3600
 
 if [ -f "$cli_version_cache" ]; then
-    cv_mtime=$(stat -c %Y "$cli_version_cache" 2>/dev/null || stat -f %m "$cli_version_cache" 2>/dev/null)
+    cv_mtime=$(stat -f %m "$cli_version_cache" 2>/dev/null || stat -c %Y "$cli_version_cache" 2>/dev/null)
     cv_now=$(date +%s)
     cv_age=$(( cv_now - cv_mtime ))
     if [ "$cv_age" -lt "$cli_version_max_age" ]; then
@@ -127,7 +156,6 @@ fi
 if [ -z "$cli_version" ]; then
     cli_version=$(claude --version 2>/dev/null | awk '{print $1}')
     if [ -n "$cli_version" ]; then
-        mkdir -p /tmp/claude 2>/dev/null
         echo "$cli_version" > "$cli_version_cache"
     fi
 fi
@@ -136,8 +164,7 @@ fi
 out=""
 out+="${blue}${model_name}${reset}"
 
-# Current working directory
-cwd=$(echo "$input" | jq -r '.cwd // empty')
+# Current working directory ($cwd parsed in the single jq pass above)
 if [ -n "$cwd" ]; then
     display_dir="${cwd##*/}"
     git_branch=$(git -C "${cwd}" rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -219,14 +246,9 @@ get_oauth_token() {
     echo ""
 }
 
-# ===== LINE 2 & 3: Usage limits with progress bars =====
-# First, try to use rate_limits data provided directly by Claude Code in the JSON input.
-# This is the most reliable source — no OAuth token or API call required.
-builtin_five_hour_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
-builtin_five_hour_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
-builtin_seven_day_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
-builtin_seven_day_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
-
+# ===== Usage limits =====
+# rate_limits comes straight from Claude Code's JSON input (parsed in the single
+# jq pass above) — the most reliable source, needing no OAuth token or API call.
 use_builtin=false
 if [ -n "$builtin_five_hour_pct" ] || [ -n "$builtin_seven_day_pct" ]; then
     use_builtin=true
@@ -235,16 +257,15 @@ fi
 # Cache setup — shared across all Claude Code instances to avoid rate limits
 claude_config_dir_hash=$(echo -n "$claude_config_dir" | shasum -a 256 2>/dev/null || echo -n "$claude_config_dir" | sha256sum 2>/dev/null)
 claude_config_dir_hash=$(echo "$claude_config_dir_hash" | cut -c1-8)
-cache_file="/tmp/claude/statusline-usage-cache-${claude_config_dir_hash}.json"
+cache_file="$cache_dir/usage-cache-${claude_config_dir_hash}.json"
 cache_max_age=60  # seconds between API calls
-mkdir -p /tmp/claude
 
 needs_refresh=true
 usage_data=""
 
 # Always load cache — used as primary source for API path, and as fallback when builtin reports zero
 if [ -f "$cache_file" ] && [ -s "$cache_file" ]; then
-    cache_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null)
+    cache_mtime=$(stat -f %m "$cache_file" 2>/dev/null || stat -c %Y "$cache_file" 2>/dev/null)
     now=$(date +%s)
     cache_age=$(( now - cache_mtime ))
     if [ "$cache_age" -lt "$cache_max_age" ]; then
@@ -280,10 +301,11 @@ if $needs_refresh; then
     touch "$cache_file"  # stampede lock: prevent parallel panes from fetching simultaneously
     token=$(get_oauth_token)
     if [ -n "$token" ] && [ "$token" != "null" ]; then
-        response=$(curl -s --max-time 10 \
+        # The bearer token goes in via --config on stdin, never as an argv
+        # element — command lines are world-readable through ps.
+        response=$(printf 'header = "Authorization: Bearer %s"\n' "$token" | curl -s --max-time 10 --config - \
             -H "Accept: application/json" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $token" \
             -H "anthropic-beta: oauth-2025-04-20" \
             -H "User-Agent: claude-code/2.1.34" \
             "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
@@ -376,14 +398,27 @@ sep=" ${dim}|${reset} "
 render_extra_usage() {
     local data="$1"
     [ -z "$data" ] && return
-    local enabled
-    enabled=$(echo "$data" | jq -r '.extra_usage.is_enabled // false' 2>/dev/null)
+
+    # One jq pass + one awk pass, down from three of each.
+    local enabled pct used limit money
+    {
+        IFS= read -r enabled
+        IFS= read -r pct
+        IFS= read -r used
+        IFS= read -r limit
+    } < <(printf '%s' "$data" | jq -r '
+        (.extra_usage.is_enabled // false),
+        (.extra_usage.utilization // 0),
+        (.extra_usage.used_credits // 0),
+        (.extra_usage.monthly_limit // 0)' 2>/dev/null)
     [ "$enabled" != "true" ] && return
 
-    local pct used limit
-    pct=$(echo "$data" | jq -r '.extra_usage.utilization // 0' | awk '{printf "%.0f", $1}')
-    used=$(echo "$data" | jq -r '.extra_usage.used_credits // 0' | LC_NUMERIC=C awk '{printf "%.2f", $1/100}')
-    limit=$(echo "$data" | jq -r '.extra_usage.monthly_limit // 0' | LC_NUMERIC=C awk '{printf "%.2f", $1/100}')
+    money=$(LC_NUMERIC=C awk -v p="$pct" -v u="$used" -v l="$limit" \
+        'BEGIN{printf "%.0f\t%.2f\t%.2f", p, u/100, l/100}' 2>/dev/null)
+    pct=${money%%$'\t'*}
+    money=${money#*$'\t'}
+    used=${money%%$'\t'*}
+    limit=${money##*$'\t'}
 
     if [ -n "$used" ] && [ -n "$limit" ] && [[ "$used" != *'$'* ]] && [[ "$limit" != *'$'* ]]; then
         local color
@@ -443,9 +478,20 @@ if $effective_builtin; then
         "$_extra_json" > "$cache_file" 2>/dev/null
 elif [ -n "$usage_data" ] && echo "$usage_data" | jq -e '.five_hour' >/dev/null 2>&1; then
     # ---- Fall back: API-fetched usage data ----
+    # Single jq pass for all four fields (was four jq + two awk).
+    {
+        IFS= read -r five_hour_pct
+        IFS= read -r five_hour_reset_iso
+        IFS= read -r seven_day_pct
+        IFS= read -r seven_day_reset_iso
+    } < <(printf '%s' "$usage_data" | jq -r '
+        (.five_hour.utilization // 0),
+        (.five_hour.resets_at // ""),
+        (.seven_day.utilization // 0),
+        (.seven_day.resets_at // "")' 2>/dev/null)
+
     # ---- 5-hour (current) ----
-    five_hour_pct=$(echo "$usage_data" | jq -r '.five_hour.utilization // 0' | awk '{printf "%.0f", $1}')
-    five_hour_reset_iso=$(echo "$usage_data" | jq -r '.five_hour.resets_at // empty')
+    five_hour_pct=$(LC_NUMERIC=C printf "%.0f" "$five_hour_pct" 2>/dev/null || echo 0)
     five_hour_reset=$(format_reset_time "$five_hour_reset_iso" "time")
     five_hour_color=$(usage_color "$five_hour_pct")
 
@@ -453,8 +499,7 @@ elif [ -n "$usage_data" ] && echo "$usage_data" | jq -e '.five_hour' >/dev/null 
     [ -n "$five_hour_reset" ] && out+=" ${dim}@${five_hour_reset}${reset}"
 
     # ---- 7-day (weekly) ----
-    seven_day_pct=$(echo "$usage_data" | jq -r '.seven_day.utilization // 0' | awk '{printf "%.0f", $1}')
-    seven_day_reset_iso=$(echo "$usage_data" | jq -r '.seven_day.resets_at // empty')
+    seven_day_pct=$(LC_NUMERIC=C printf "%.0f" "$seven_day_pct" 2>/dev/null || echo 0)
     seven_day_reset=$(format_reset_time "$seven_day_reset_iso" "datetime")
     seven_day_color=$(usage_color "$seven_day_pct")
 
@@ -472,14 +517,14 @@ fi
 # Set STATUSLINE_CHECK_UPDATES=false to disable the update check (no network calls).
 update_line=""
 if [ "${STATUSLINE_CHECK_UPDATES:-true}" != "false" ]; then
-    version_cache_file="/tmp/claude/statusline-version-cache.json"
+    version_cache_file="$cache_dir/version-cache.json"
     version_cache_max_age=86400  # 24 hours
 
     version_needs_refresh=true
     version_data=""
 
     if [ -f "$version_cache_file" ]; then
-        vc_mtime=$(stat -c %Y "$version_cache_file" 2>/dev/null || stat -f %m "$version_cache_file" 2>/dev/null)
+        vc_mtime=$(stat -f %m "$version_cache_file" 2>/dev/null || stat -c %Y "$version_cache_file" 2>/dev/null)
         vc_now=$(date +%s)
         vc_age=$(( vc_now - vc_mtime ))
         if [ "$vc_age" -lt "$version_cache_max_age" ]; then

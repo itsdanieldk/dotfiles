@@ -10,6 +10,8 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup("plugins", {
-    checker = { enabled = true, notify = false },
+    -- Update checking is off: enabling it fetches from every plugin remote on
+    -- each startup. Run :Lazy check (or :Lazy update) by hand instead.
+    checker = { enabled = false },
     change_detection = { notify = false },
 })

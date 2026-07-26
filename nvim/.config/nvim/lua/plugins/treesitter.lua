@@ -10,7 +10,11 @@ return {
                 "bash",
                 "json", "yaml", "toml",
                 "markdown", "markdown_inline",
-                "c_sharp", "html", "css", "javascript", "typescript",
+                -- .NET: xml covers .fsproj/.csproj/.props/.targets
+                "c_sharp", "fsharp", "xml",
+                -- Azure: .bicep templates, and sql for Azure SQL
+                "bicep", "sql",
+                "html", "css", "javascript", "typescript",
                 "dockerfile", "gitignore",
             },
             auto_install = true,

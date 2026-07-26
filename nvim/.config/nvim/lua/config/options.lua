@@ -1,20 +1,12 @@
 local opt = vim.opt
 
+
+-- ============================================================
+-- UI
+-- ============================================================
 -- Line numbers
 opt.number = true
 opt.relativenumber = true
-
--- Indentation
-opt.tabstop = 4
-opt.shiftwidth = 4
-opt.expandtab = true
-opt.smartindent = true
-
--- Search
-opt.ignorecase = true
-opt.smartcase = true
-opt.hlsearch = true
-opt.incsearch = true
 
 -- Appearance
 opt.termguicolors = true
@@ -32,7 +24,37 @@ opt.fillchars = { eob = " " }         -- hide '~' on empty lines
 opt.splitright = true
 opt.splitbelow = true
 
+
+-- ============================================================
+-- Editing
+-- ============================================================
+-- Indentation
+opt.tabstop = 4
+opt.shiftwidth = 4
+opt.expandtab = true
+opt.smartindent = true
+
+-- Wrapping
+opt.wrap = false
+opt.breakindent = true
+
+-- Whitespace
+opt.list = true
+opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
+
+
+-- ============================================================
+-- Search
+-- ============================================================
+opt.ignorecase = true
+opt.smartcase = true
+opt.hlsearch = true
+opt.incsearch = true
+
+
+-- ============================================================
 -- Behavior
+-- ============================================================
 opt.clipboard = "unnamedplus"
 opt.undofile = true
 opt.swapfile = false
@@ -40,10 +62,4 @@ opt.updatetime = 250
 opt.timeoutlen = 300
 opt.mouse = "a"
 opt.completeopt = { "menu", "menuone", "noselect" }
-opt.wrap = false
-opt.breakindent = true
 opt.confirm = true                    -- :q on dirty buf prompts instead of erroring
-
--- Whitespace
-opt.list = true
-opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }

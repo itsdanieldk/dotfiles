@@ -1,0 +1,138 @@
+# ============================================================
+# AeroSpace — tiling window manager
+# ============================================================
+# Docs:     https://nikitabobko.github.io/AeroSpace/guide
+# Commands: https://nikitabobko.github.io/AeroSpace/commands
+#
+# AeroSpace reads either ~/.aerospace.toml or this XDG path. Having BOTH is an
+# error ("ambiguity is reported"), so ~/.aerospace.toml must not exist.
+#
+# WHY THIS DIFFERS FROM UPSTREAM'S default-config.toml:
+# AeroSpace binds keys system-wide — it sees them before kitty or zsh do. The
+# upstream default binds alt-<letter> for 26 letter-named workspaces, which would
+# swallow this setup's shell keys: ^[c (fzf-cd-widget), ^[b / ^[f (word motion),
+# ^[d (kill-word), ^[m, ^[n, ^[p, ^[g, ^[a. So: numeric workspaces only.
+# Before adding any alt-<letter> binding here, check it against `bindkey -M emacs`.
+#
+# Conscious losses to the shell, all low-value:
+#   ^[h  run-help          -> alt-h is 'focus left'
+#   ^[l  OMZ ls widget     -> alt-l is 'focus right'
+#   ^[1..^[9  digit-argument -> workspace switching
+
+config-version = 2
+
+
+# ============================================================
+# Startup
+# ============================================================
+# Left off deliberately while evaluating: a tiling WM rearranges every window on
+# the desktop, and "just don't launch it" is the cheapest escape hatch.
+start-at-login = false
+
+# Re-reads this file on save. Per upstream, reload once by hand after enabling
+# for the auto-reloading to start.
+auto-reload-config = true
+
+after-startup-command = []
+on-mode-changed = []
+
+
+# ============================================================
+# Layout
+# ============================================================
+default-root-container-layout = 'tiles'
+# 'auto' = horizontal on wide monitors, vertical on tall ones
+default-root-container-orientation = 'auto'
+accordion-padding = 30
+
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+# 8 to match kitty's window_padding_width
+gaps.inner.horizontal = 8
+gaps.inner.vertical   = 8
+gaps.outer.left       = 8
+gaps.outer.bottom     = 8
+gaps.outer.top        = 8
+gaps.outer.right      = 8
+
+
+# ============================================================
+# Behaviour
+# ============================================================
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+focus-follows-mouse.enabled = false
+automatically-unhide-macos-hidden-apps = false
+key-mapping.preset = 'qwerty'
+
+# Numeric only — kept in sync with the bindings below.
+persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+
+# ============================================================
+# Main bindings
+# ============================================================
+[mode.main.binding]
+
+    # Focus
+    alt-h = 'focus left'
+    alt-j = 'focus down'
+    alt-k = 'focus up'
+    alt-l = 'focus right'
+
+    # Move the focused window
+    alt-shift-h = 'move left'
+    alt-shift-j = 'move down'
+    alt-shift-k = 'move up'
+    alt-shift-l = 'move right'
+
+    # Resize
+    alt-minus = 'resize smart -50'
+    alt-equal = 'resize smart +50'
+
+    # Layout
+    alt-slash = 'layout tiles horizontal vertical'
+    alt-comma = 'layout accordion horizontal vertical'
+
+    # Workspaces
+    alt-1 = 'workspace 1'
+    alt-2 = 'workspace 2'
+    alt-3 = 'workspace 3'
+    alt-4 = 'workspace 4'
+    alt-5 = 'workspace 5'
+    alt-6 = 'workspace 6'
+    alt-7 = 'workspace 7'
+    alt-8 = 'workspace 8'
+    alt-9 = 'workspace 9'
+
+    # Send the focused window to a workspace
+    alt-shift-1 = 'move-node-to-workspace 1'
+    alt-shift-2 = 'move-node-to-workspace 2'
+    alt-shift-3 = 'move-node-to-workspace 3'
+    alt-shift-4 = 'move-node-to-workspace 4'
+    alt-shift-5 = 'move-node-to-workspace 5'
+    alt-shift-6 = 'move-node-to-workspace 6'
+    alt-shift-7 = 'move-node-to-workspace 7'
+    alt-shift-8 = 'move-node-to-workspace 8'
+    alt-shift-9 = 'move-node-to-workspace 9'
+
+    alt-tab = 'workspace-back-and-forth'
+    alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+
+    alt-shift-semicolon = 'mode service'
+
+
+# ============================================================
+# Service mode
+# ============================================================
+# Entered with alt-shift-semicolon; every binding returns to main mode.
+[mode.service.binding]
+    esc = ['reload-config', 'mode main']
+    r = ['flatten-workspace-tree', 'mode main']          # reset layout
+    f = ['layout floating tiling', 'mode main']          # toggle float/tile
+    backspace = ['close-all-windows-but-current', 'mode main']
+
+    alt-shift-h = ['join-with left', 'mode main']
+    alt-shift-j = ['join-with down', 'mode main']
+    alt-shift-k = ['join-with up', 'mode main']
+    alt-shift-l = ['join-with right', 'mode main']

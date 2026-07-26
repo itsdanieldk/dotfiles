@@ -1,11 +1,46 @@
+# ============================================================
+# dotfiles repo — local ignores
+# ============================================================
+# This file covers THIS repository only. Machine-wide ignores live in
+# git/.config/git/ignore, which stow links to ~/.config/git/ignore.
+#
+# NOTE: gitignore has no trailing-comment syntax. '#' only starts a comment at
+# the start of a line — appending one to a pattern makes it part of the pattern
+# and silently stops it matching. Keep every comment on its own line.
+
+
+# ============================================================
+# Claude Code project settings
+# ============================================================
+# Machine-local settings for working *in* this repo (permissions, etc).
+# Anchored with a leading slash so it matches only the repo root, never the
+# tracked `claude/` stow package.
 /.claude
+
+
+# ============================================================
+# Stow package allowlists
+# ============================================================
+# These two packages map to directories their app writes runtime state and
+# secrets into. Because stow uses --no-folding, those are real directories in
+# $HOME and the app can drop files straight into the repo. So: ignore
+# everything, then re-include only what we deliberately track.
 
 # SSH: track only the config — never keys, known_hosts, or other runtime files.
 ssh/.ssh/*
 !ssh/.ssh/config
 
 # Claude Code: track only settings + statusline — never runtime state or
-# credentials.
+# credentials (e.g. .credentials.json).
 claude/.claude/*
 !claude/.claude/settings.json
 !claude/.claude/statusline.sh
+
+
+# ============================================================
+# macOS noise
+# ============================================================
+# Duplicated from the global ignore on purpose: this repo gets cloned onto
+# machines before the global ignore is stowed, so it has to stand alone.
+.DS_Store
+._*
