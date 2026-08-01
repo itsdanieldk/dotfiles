@@ -308,14 +308,29 @@ if ask "Apply macOS Dock defaults?"; then
     defaults write com.apple.dock mru-spaces -bool false
     # Faster Mission Control animation
     defaults write com.apple.dock expose-animation-duration -float 0.1
+    # Auto-hide the Dock. The two lines below only tune the hide animation;
+    # without this they configure something that never happens.
+    defaults write com.apple.dock autohide -bool true
     # Remove auto-hide delay
     defaults write com.apple.dock autohide-delay -float 0
     # Faster auto-hide animation
     defaults write com.apple.dock autohide-time-modifier -float 0.3
-    # Set icon size
-    defaults write com.apple.dock tilesize -int 48
+    # Icon size. Pin magnification off alongside it: it's unset by default, so
+    # the Dock would otherwise honour whatever the System Settings slider last
+    # did and hover-scale icons away from this size. Off makes tilesize the one
+    # size the Dock ever renders at. (largesize is the hover size, and is dead
+    # weight while magnification is false.)
+    defaults write com.apple.dock tilesize -int 28
+    defaults write com.apple.dock magnification -bool false
     killall Dock 2>/dev/null || true
     ok "Dock defaults applied."
+fi
+
+# --- Menu bar ---
+if ask "Auto-hide the macOS menu bar? (only if sketchybar starts at login)"; then
+    defaults write NSGlobalDomain _HIHideMenuBar -bool true
+    warn "Menu bar auto-hide takes effect after logout. The System Settings"
+    warn "toggle (Control Center > Automatically hide and show) applies instantly."
 fi
 
 # --- Keyboard ---
@@ -343,6 +358,26 @@ if ask "Apply macOS keyboard defaults?"; then
     # Disable press-and-hold for accent characters (enables key repeat everywhere)
     defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
     ok "Keyboard defaults applied."
+fi
+
+# --- Launcher ---
+# Raycast replaces Spotlight on ⌘-Space.
+if ask "Free up ⌘Space for Raycast (disable the Spotlight shortcuts)?"; then
+    defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 64 \
+        '{ enabled = 0; value = { parameters = ( 32, 49, 1048576 ); type = standard; }; }'
+    defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 65 \
+        '{ enabled = 0; value = { parameters = ( 32, 49, 1572864 ); type = standard; }; }'
+    /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || warn "activateSettings failed; the change applies after logout."
+    ok "Spotlight shortcuts disabled."
+    warn "Verify: System Settings > Keyboard > Keyboard Shortcuts > Spotlight."
+    warn "Raycast's own settings are not file-based, so finish these by hand:"
+    warn "  1. Set the Raycast hotkey to ⌘Space."
+    warn "  2. Disable the Window Management extension — it duplicates AeroSpace"
+    warn "     and its hotkeys would fight alt-hjkl."
+    warn "  3. Settings > Script Commands > Add Script Directory >"
+    warn "     ~/.config/raycast/scripts"
+    warn "  4. Open Raycast Settings, run 'aerospace list-apps', and add its bundle"
+    warn "     ID to the float rules in aerospace.toml (a commented stub is there)."
 fi
 
 # --- Screenshots ---
@@ -409,6 +444,21 @@ fi
 # ============================================================
 # Post-stow seeding
 # ============================================================
+# --- sketchybar mic helper ---
+# Compiled, not interpreted: `swift <file>` on a trivial script measured 1.25s,
+# which is not pollable. The binary is written next to the stowed source, which
+# lands in $HOME rather than in the repo because stow runs --no-folding (helpers/
+# is a real directory containing one symlink). mic.sh rebuilds it on demand too,
+# so a `git pull` that changes the source doesn't need a re-run of this script.
+mic_src="${HOME}/.config/sketchybar/helpers/mic.swift"
+if [[ -r $mic_src ]] && command -v swiftc &>/dev/null; then
+    if swiftc -O -o "${mic_src:h}/mic" "$mic_src" 2>/dev/null; then
+        ok "sketchybar mic helper built."
+    else
+        warn "sketchybar mic helper failed to build; the mic item will stay hidden."
+    fi
+fi
+
 # --- btop theme ---
 # btop.conf is machine-local (btop rewrites it on every exit) so it isn't tracked.
 # Seed just the theme on fresh installs; existing configs are left untouched.

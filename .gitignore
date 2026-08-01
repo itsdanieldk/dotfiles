@@ -36,6 +36,11 @@ claude/.claude/*
 !claude/.claude/settings.json
 !claude/.claude/statusline.sh
 
+# SketchyBar: the mic helper is compiled from the tracked .swift source. Because
+# stow runs --no-folding, that build output lands in $HOME and can't reach the
+# repo anyway — this is belt and braces for anyone who builds in-tree.
+sketchybar/.config/sketchybar/helpers/mic
+
 
 # ============================================================
 # macOS noise
