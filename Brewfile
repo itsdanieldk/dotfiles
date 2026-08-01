@@ -13,6 +13,7 @@ tap "azure/functions"               # provides azure-functions-core-tools@4
 tap "azure/bicep"                   # provides bicep
 tap "azure/kubelogin"               # provides Azure's kubelogin (see note below)
 tap "nikitabobko/tap"               # provides aerospace
+tap "FelixKratz/formulae"           # provides borders (not in homebrew-core)
 
 
 # ============================================================
@@ -103,6 +104,7 @@ cask "copilot-cli"
 
 # --- Notes & productivity ---
 cask "obsidian"
+cask "raycast"
 
 # --- Browsers & media ---
 cask "google-chrome"
@@ -114,11 +116,14 @@ cask "teamviewer"
 
 # --- Window management ---
 cask "aerospace"
+brew "borders"
+brew "sketchybar"
+brew "ical-buddy"
 
 # --- System & hardware ---
 cask "macs-fan-control"
+brew "macmon"
 cask "monitorcontrol"
-cask "thaw"
 cask "logi-options+"
 cask "focusrite-control-2"
 cask "onyx"

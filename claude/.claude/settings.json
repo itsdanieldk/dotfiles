@@ -7,5 +7,6 @@
   "effortLevel": "xhigh",
   "tui": "fullscreen",
   "theme": "auto",
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "sandbox.enabled": true
 }

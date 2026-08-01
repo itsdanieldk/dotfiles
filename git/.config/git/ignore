@@ -51,3 +51,5 @@
 # Deliberately NOT ignored globally: bin/ and obj/. They belong in a project's
 # own .gitignore, which `dotnet new gitignore` generates. A global rule would
 # also hit non-.NET repos that legitimately track a bin/ directory of scripts.
+
+**/.claude/.cc-writes/

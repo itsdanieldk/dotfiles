@@ -79,6 +79,7 @@ each declared tap trust as it adds it.
 | `kitty` | Kitty terminal (Catppuccin Frappé, Fira Code Nerd Font Mono) |
 | `lazygit` | lazygit config (Catppuccin Frappé theme, delta pager) |
 | `nvim` | Neovim (lazy.nvim, Treesitter, Telescope, Catppuccin Frappé) |
+| `raycast` | [Raycast](https://www.raycast.com) script commands. Raycast's own settings are not file-based, so only this directory is tracked — add it under Settings > Script Commands > Add Script Directory |
 | `ssh` | SSH config with macOS Keychain, hardened algorithms. Put machine-local hosts in `~/.ssh/config.local` (included first, untracked) |
 | `zsh` | `.zshrc` (Oh My Zsh + Powerlevel10k, fzf, zoxide, direnv, aliases), `.p10k.zsh`, `.zprofile` |
 
@@ -101,6 +102,7 @@ The install script can configure:
 - **Finder** — show hidden files, extensions, path/status bar, list view, folders on top, search current folder, unhide `~/Library`, no `.DS_Store` on network/USB
 - **Dock** — minimize to app icon, hide recent apps, no space rearranging, icon size, faster animations (auto-hide timings are tuned, but auto-hide itself is left to you)
 - **Keyboard** — fast key repeat, below what System Settings can express (`KeyRepeat=1.5`, `InitialKeyRepeat=12`, in 15 ms ticks — the slider bottoms out at 2 and 15). Also disables auto-correct, smart quotes and smart dashes, and enables full keyboard access. Takes effect after logout/login
+- **Launcher** — disables the Spotlight (`⌘Space`) and Finder-search (`⌘⌥Space`) shortcuts so Raycast can take the key. `⌥Space` is deliberately *not* used: kitty runs `macos_option_as_alt left`, so it would swallow zsh's `expand-history`
 - **Screenshots** — save to `~/Pictures/Screenshots`, PNG format, no shadow
 - **Trackpad** — three-finger drag
 - **Misc** — expanded save/print panels by default

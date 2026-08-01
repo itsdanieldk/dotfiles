@@ -18,6 +18,21 @@
 #   ^[h  run-help          -> alt-h is 'focus left'
 #   ^[l  OMZ ls widget     -> alt-l is 'focus right'
 #   ^[1..^[9  digit-argument -> workspace switching
+#
+# alt-ctrl-shift-<letter> reaches the terminal as ^[^<letter> (Shift is dropped
+# for control characters), costing two more. Both keep an alternative:
+#   ^[^H backward-kill-word -> alt-ctrl-shift-h throws a window one monitor left
+#                              (alt-backspace, ^[^?, still does it)
+#   ^[^L clear-screen       -> alt-ctrl-shift-l throws a window one monitor right
+#                              (ctrl-l still does it)
+#   ^[F  forward-word       -> alt-shift-f is 'fullscreen' (^[f is the same widget)
+#
+# ON ANIMATIONS: there are none, and none are possible. AeroSpace repositions a
+# window with a single Accessibility API write — there is no tween and no config
+# option for one. (Upstream only discusses animation to explain why it replaced
+# native macOS Spaces, whose switching animation can't be disabled.) The focus
+# cue below is the substitute: JankyBorders draws a ring on the focused window,
+# and that ring pulses on every focus change.
 
 config-version = 2
 
@@ -25,15 +40,24 @@ config-version = 2
 # ============================================================
 # Startup
 # ============================================================
-# Left off deliberately while evaluating: a tiling WM rearranges every window on
-# the desktop, and "just don't launch it" is the cheapest escape hatch.
-start-at-login = false
+# The escape hatch is `aerospace enable toggle`, which suspends window management
+# without quitting — so there's no reason to keep launching it by hand.
+start-at-login = true
 
 # Re-reads this file on save. Per upstream, reload once by hand after enabling
 # for the auto-reloading to start.
 auto-reload-config = true
 
-after-startup-command = []
+# JankyBorders — draws the focus ring (see the focus cues under Behaviour).
+# Run with no arguments so it reads ~/.config/borders/bordersrc, which is the
+# stowed `borders` package. Started from here rather than `brew services` so the
+# ring's lifetime is tied to the window manager's: quit AeroSpace, no orphan.
+after-startup-command = [
+    'exec-and-forget borders',
+    # The status bar. Both run with no arguments so they read their own stowed
+    # config (~/.config/borders/bordersrc, ~/.config/sketchybar/sketchybarrc).
+    'exec-and-forget sketchybar',
+]
 on-mode-changed = []
 
 
@@ -53,14 +77,55 @@ gaps.inner.horizontal = 8
 gaps.inner.vertical   = 8
 gaps.outer.left       = 8
 gaps.outer.bottom     = 8
-gaps.outer.top        = 8
+# Per-monitor, because the built-in display has a notch and the externals don't.
+#
+# SketchyBar's islands are 26pt tall centred in a 32pt transparent bar, so their
+# bottom edge is at y=29; 37 = 29 + the usual 8pt gap. The bar draws inside the
+# area AeroSpace tiles into, so without this windows slide underneath it.
+#
+# The built-in gets 5, not 37. AeroSpace tiles inside the monitor's VISIBLE rect,
+# and macOS reserves that display's top 32pt as notch safe area even with the
+# menu bar auto-hidden (measured: safeAreaInsets.top = 32, visibleFrame 1512x950
+# of a 1512x982 frame). So the 32 is already excluded and only the remaining 5
+# has to be asked for. Measured to confirm: with a flat 34 here, a window on the
+# built-in landed at y=66 (= 32 + 34) while one on an external landed at y=34 —
+# a 32pt dead strip on the laptop only. 5 + 32 = 37 puts both at the same place.
+#
+# Also paired with the macOS menu bar being auto-hidden (see the install script):
+# with the menu bar visible this would sit on top of its 30, and the bar would
+# land below it rather than at the top of the screen.
+gaps.outer.top        = [{ monitor.'built-in' = 5 }, 37]
 gaps.outer.right      = 8
 
 
 # ============================================================
 # Behaviour
 # ============================================================
+# Focus cue. AeroSpace can't animate a window move (see the note at the top), so
+# the JankyBorders ring flashes lavender for ~120ms and settles back to mauve.
+# Re-invoking `borders` reconfigures the running instance rather than starting a
+# second one, which is what makes the two-frame pulse work.
+# Colours are Catppuccin Frappé: lavender #babbf1, mauve #ca9ee6 (the same mauve
+# kitty uses for active_tab_background). They must stay in sync with bordersrc.
+# If a held-down alt-h/alt-l ever makes the pulse look like flicker, drop this
+# callback — the static ring survives on its own.
+#
+# Deliberately NOT 'move-mouse window-lazy-center' here: the pointer stays put
+# on window focus changes. The monitor callback below is a different thing — it
+# only fires when the focused *monitor* changes.
+on-focus-changed = [
+    'exec-and-forget /bin/sh -c "borders active_color=0xffbabbf1; sleep 0.12; borders active_color=0xffca9ee6"',
+]
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
+# Pushes workspace switches to SketchyBar, which has no way to learn about them
+# on its own. Inert while sketchybar isn't running — the command just fails into
+# the void — which is why it's safe to leave here while the bar is still being
+# trialled. $AEROSPACE_FOCUSED_WORKSPACE is set by AeroSpace for this callback.
+exec-on-workspace-change = [
+    '/bin/bash', '-c',
+    'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
+]
 focus-follows-mouse.enabled = false
 automatically-unhide-macos-hidden-apps = false
 key-mapping.preset = 'qwerty'
@@ -70,21 +135,112 @@ persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 
 # ============================================================
+# Window rules
+# ============================================================
+# Runs every time a new window is detected. Two syntaxes exist; this is the
+# current one (`if = 'test ...'`). The `if.app-id = '...'` form seen in most
+# blog posts is the deprecated legacy spelling.
+#
+# `check-further-callbacks` defaults to false, so the FIRST matching rule wins
+# and everything below it is skipped. The rules here are mutually exclusive, so
+# order doesn't bite yet — it will the moment two conditions can both match.
+#
+# Bundle IDs were read off each app's Info.plist, not guessed. To add one:
+# `aerospace list-apps` while it's running.
+#
+# Deliberately NOT here: browsers, kitty, VS Code. This fires for *every* new
+# window, so a placement rule on those would yank a window you just opened onto
+# another monitor mid-task.
+on-window-detected = [
+    # Float — utilities and preference panes; a tile only distorts the layout.
+    { if = 'test %{app-bundle-id} = com.apple.systempreferences',          run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = com.apple.calculator',                 run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = com.fasttracksoftware.adminbyrequest', run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = app.monitorcontrol.MonitorControl',    run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = com.logi.optionsplus',                 run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = com.crystalidea.macsfancontrol',       run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = com.focusrite.control',                run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = com.titanium.OnyX',                    run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = com.jetbrains.toolbox',                run = 'layout floating' },
+    # Raycast — the launcher panel itself is a non-activating window AeroSpace
+    # already ignores, but its Settings window tiles. Left COMMENTED because the
+    # bundle ID is unverified: Raycast is in the Brewfile but not installed here,
+    # and the Homebrew cask carries no zap/quit stanza to read it from. Per the
+    # rule above, read it rather than guess — install Raycast, open its Settings
+    # window, run `aerospace list-apps`, paste what it reports, and uncomment.
+    # A wrong ID does not error; the rule just never fires.
+    # { if = 'test %{app-bundle-id} = com.raycast.macos',                  run = 'layout floating' },
+
+    # Place — chat/mail/notes open on their home screens (see the map below).
+    { if = 'test %{app-bundle-id} = com.microsoft.teams2',  run = 'move-node-to-workspace 6' },
+    { if = 'test %{app-bundle-id} = com.microsoft.Outlook', run = 'move-node-to-workspace 7' },
+    { if = 'test %{app-bundle-id} = md.obsidian',           run = 'move-node-to-workspace 8' },
+]
+
+
+# ============================================================
+# Monitors
+# ============================================================
+# The desk, left to right — AeroSpace ordinals are ordered the same way, so its
+# numbering already matches the physical layout:
+#   1 = Built-in Retina Display  (left,   laptop)
+#   2 = P24h-2L (1)              (middle, macOS main display — the work screen)
+#   3 = P24h-2L (2)              (right,  side monitor)
+#
+# Both externals report the same name ("P24h-2L"); macOS appends (1)/(2) and
+# those suffixes can swap on reconnect, so they are never matched by name.
+#
+# The low numbers go to the middle screen deliberately: easiest keys on the
+# busiest monitor, at the cost of alt-N no longer tracking desk position.
+#
+#   LAPTOP        MAIN (middle)        SIDE
+#   ┌───────┐  ┌─────────────────┐  ┌───────┐
+#   │  8 9  │  │  1 2 3 4 5      │  │  6 7  │
+#   └───────┘  └─────────────────┘  └───────┘
+#
+# Every entry ends in a pattern that always resolves, so undocking or closing
+# the lid collapses workspaces onto a live screen instead of stranding them.
+#
+# NOTE: force-assignment makes `move-workspace-to-monitor` a no-op. Use
+# `move-node-to-monitor` (alt-ctrl-shift-h/l below) to shuffle windows instead.
+[workspace-to-monitor-force-assignment]
+    1 = 'main'                  # middle — the work screen
+    2 = 'main'
+    3 = 'main'
+    4 = 'main'
+    5 = 'main'
+    6 = ['3', 'secondary']      # right — ordinal with 3 screens, secondary with 2
+    7 = ['3', 'secondary']
+    8 = ['built-in', 'main']    # laptop — 'main' covers clamshell
+    9 = ['built-in', 'main']
+
+
+# ============================================================
 # Main bindings
 # ============================================================
 [mode.main.binding]
 
-    # Focus
-    alt-h = 'focus left'
+    # Launch a terminal, i3/sway style. Deliberately alt-SHIFT-enter and not the
+    # idiomatic alt-enter: AeroSpace binds system-wide, ahead of kitty and zsh,
+    # so alt-enter would permanently swallow ^[^M — which is self-insert-unmeta
+    # in zsh's emacs keymap and "insert newline without submitting" in Claude
+    # Code. Neither can be won back per-app once AeroSpace has the key.
+    # `open -na` for a new instance each time; kitty has no single-instance or
+    # remote-control setup here for a new window to attach to.
+    alt-shift-enter = 'exec-and-forget open -na kitty'
+
+    # Focus — the three monitors sit side by side, so h/l treat them as one
+    # continuous frame and walk across the edges. j/k stay workspace-local.
+    alt-h = 'focus --boundaries all-monitors-outer-frame left'
     alt-j = 'focus down'
     alt-k = 'focus up'
-    alt-l = 'focus right'
+    alt-l = 'focus --boundaries all-monitors-outer-frame right'
 
-    # Move the focused window
-    alt-shift-h = 'move left'
+    # Move the focused window — h/l carry it onto the neighbouring monitor
+    alt-shift-h = 'move --boundaries all-monitors-outer-frame left'
     alt-shift-j = 'move down'
     alt-shift-k = 'move up'
-    alt-shift-l = 'move right'
+    alt-shift-l = 'move --boundaries all-monitors-outer-frame right'
 
     # Resize
     alt-minus = 'resize smart -50'
@@ -93,6 +249,8 @@ persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
     # Layout
     alt-slash = 'layout tiles horizontal vertical'
     alt-comma = 'layout accordion horizontal vertical'
+    # ^[F is bound to forward-word, but so is ^[f — this costs a duplicate.
+    alt-shift-f = 'fullscreen'
 
     # Workspaces
     alt-1 = 'workspace 1'
@@ -117,7 +275,14 @@ persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
     alt-shift-9 = 'move-node-to-workspace 9'
 
     alt-tab = 'workspace-back-and-forth'
-    alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+    # Window-level counterpart to alt-tab. ^[` is unbound in emacs mode.
+    alt-backtick = 'focus-back-and-forth'
+    # Was move-workspace-to-monitor, which force-assignment turns into a no-op.
+    alt-shift-tab = 'focus-monitor --wrap-around next'
+
+    # Throw the focused window one screen over and follow it there
+    alt-ctrl-shift-h = 'move-node-to-monitor --focus-follows-window left'
+    alt-ctrl-shift-l = 'move-node-to-monitor --focus-follows-window right'
 
     alt-shift-semicolon = 'mode service'
 
@@ -130,6 +295,8 @@ persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
     esc = ['reload-config', 'mode main']
     r = ['flatten-workspace-tree', 'mode main']          # reset layout
     f = ['layout floating tiling', 'mode main']          # toggle float/tile
+    b = ['balance-sizes', 'mode main']                   # equalise all windows
+    s = ['swap --swap-focus dfs-next', 'mode main']      # swap with next window
     backspace = ['close-all-windows-but-current', 'mode main']
 
     alt-shift-h = ['join-with left', 'mode main']

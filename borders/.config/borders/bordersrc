@@ -1,0 +1,21 @@
+#!/bin/sh
+# JankyBorders — draws a ring around the focused window.
+#
+# AeroSpace can't animate window moves, so this ring is the focus cue. It's
+# launched by aerospace.toml's after-startup-command with no arguments, which is
+# what makes `borders` read this file.
+#
+# Catppuccin Frappé, matching the rest of the setup:
+#   mauve    #ca9ee6  — focused; the same colour as kitty's active_tab_background
+#   surface1 #51576d  — unfocused
+# Colours are 0xAARRGGBB, so the leading ff is opacity.
+#
+# aerospace.toml's on-focus-changed pulses active_color to lavender (#babbf1)
+# and back to the mauve below. Change the mauve here and it must change there
+# too, or every focus change will "settle" on the old colour.
+exec borders \
+    active_color=0xffca9ee6 \
+    inactive_color=0xff51576d \
+    width=4.0 \
+    style=round \
+    hidpi=on
