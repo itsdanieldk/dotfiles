@@ -14,18 +14,81 @@
 # ^[d (kill-word), ^[m, ^[n, ^[p, ^[g, ^[a. So: numeric workspaces only.
 # Before adding any alt-<letter> binding here, check it against `bindkey -M emacs`.
 #
+# TWO SEPARATE HAZARDS LIVE ON alt, AND THEY ARE NOT THE SAME PROBLEM:
+#
+#   alt-<letter>  collides with ZSH WIDGETS          (the paragraph above)
+#   alt-<digit>   collides with the KEYBOARD LAYOUT  (this paragraph)
+#
+# This machine is on the DANISH layout, where brackets and braces are on the
+# Option layer of the digit row. Binding alt-<digit> here makes them untypable
+# system-wide, with no alternative route on the layout:
+#   alt-8 [    alt-9 ]    alt-shift-7 \    alt-shift-8 {    alt-shift-9 }
+# That is why workspace switching is on CTRL-<digit>, not alt-<digit>. It is not
+# a style choice and it must not be "tidied" back to alt to match upstream.
+#
+# CTRL is the escape and CMD is not. Measured with UCKeyTranslate against the
+# live input source, key 8:
+#   alt-8 -> [        alt-shift-8 -> {
+#   cmd-alt-8 -> [    <- Command does NOT suppress the Option layer
+#   ctrl-8 -> 8       ctrl-shift-8 -> 8        <- Control does
+#   ctrl-alt-8 -> 8   ctrl-alt-shift-8 -> 8
+# Same applies to Norwegian, Swedish, Finnish and German layouts. If this config
+# is ever used on US ANSI the constraint disappears, but the bindings can stay.
+#
+# ctrl-<digit> and ctrl-shift-<digit> were checked and are owned by nothing here:
+# not kitty.conf, not this file, not `bindkey -M emacs`.
+#
+# PUT CONTROL ON CAPS LOCK. Reaching the bottom-left Ctrl for a key pressed this
+# often is the same stretch that ruled out alt-ctrl; Caps Lock is the best-placed
+# key on the board and macOS remaps it natively, no software required:
+#   System Settings > Keyboard > Keyboard Shortcuts… > Modifier Keys
+#
+# THAT PANEL IS PER-KEYBOARD, which is the trap. macOS stores the mapping as
+# `com.apple.keyboard.modifiermapping.<vendor>-<product>-0`, so setting it on one
+# device does nothing for another and the panel has a keyboard selector that is
+# easy to miss. Two are attached here (from IOHIDManager):
+#   Keychron Link   vendor 13364  product 53296
+#   USB Receiver    vendor 1133   product 50504   (Logitech)
+# "I set it and it didn't work" almost always means it was set on the other one.
+#
+# IF THE NATIVE REMAP FEELS LAGGY, that is its known Caps Lock debounce, and it
+# is the only good reason to escalate. Two escalations, in order of preference:
+#   1. THE KEYBOARD'S OWN FIRMWARE. Many Keychron boards are QMK/VIA
+#      programmable and QMK has a native Hyper (LCTL+LSFT+LALT+LGUI). No Mac-side
+#      software, no driver, no permission grant, and it travels with the keyboard.
+#      Check the model against Keychron's VIA/Launcher support first.
+#   2. Karabiner-Elements. Buys hyper (so ctrl+digit returns to apps) and no
+#      activation delay, at the cost of a DriverKit virtual HID driver, an Input
+#      Monitoring grant, and a karabiner.json that the app rewrites — awkward to
+#      stow for the same reason ~/.claude and ~/.ssh are (see CLAUDE.md). If it
+#      comes to that, stow a rule file under assets/complex_modifications/, which
+#      the app treats as read-only input, not karabiner.json itself.
+#
+# ONE THING TO WATCH: macOS Mission Control has "Switch to Desktop N" on ctrl-1..9
+# by default whenever more than one Space exists. System hotkeys are processed
+# early and can beat AeroSpace, so keep to a single macOS Space or uncheck those
+# in System Settings > Keyboard > Keyboard Shortcuts > Mission Control.
+#
 # Conscious losses to the shell, all low-value:
 #   ^[h  run-help          -> alt-h is 'focus left'
 #   ^[l  OMZ ls widget     -> alt-l is 'focus right'
-#   ^[1..^[9  digit-argument -> workspace switching
+#   ^[F  forward-word      -> alt-shift-f is 'fullscreen' (^[f is the same widget)
+# ^[1..^[9 (digit-argument) and ^[^H / ^[^L (backward-kill-word, clear-screen)
+# used to be on that list and are RECOVERED — nothing binds alt-<digit> any more,
+# and the alt-ctrl-shift-h/l monitor bindings went with the second monitor.
 #
-# alt-ctrl-shift-<letter> reaches the terminal as ^[^<letter> (Shift is dropped
-# for control characters), costing two more. Both keep an alternative:
-#   ^[^H backward-kill-word -> alt-ctrl-shift-h throws a window one monitor left
-#                              (alt-backspace, ^[^?, still does it)
-#   ^[^L clear-screen       -> alt-ctrl-shift-l throws a window one monitor right
-#                              (ctrl-l still does it)
-#   ^[F  forward-word       -> alt-shift-f is 'fullscreen' (^[f is the same widget)
+# INSIDE KITTY THE TWO OPTION KEYS DIFFER, and that is deliberate — kitty.conf
+# sets `macos_option_as_alt left`. So:
+#   LEFT  option + 8  -> ^[8, i.e. digit-argument (kitty sends it as Alt)
+#   RIGHT option + 8  -> [    (kitty lets the layout compose it)
+# Use the RIGHT Option key for brackets and braces in the terminal. Everywhere
+# else there is only one Option layer and either key composes them.
+#
+# SINGLE SCREEN. This config is tuned for one 2560x1440 external and nothing
+# else: no per-monitor gaps, no workspace-to-monitor assignment, no
+# focus-monitor or move-node-to-monitor bindings, and no notch arithmetic. If a
+# second display or the laptop's own screen ever comes back, all of that has to
+# be reintroduced — the measurements are in git history, not here.
 #
 # ON ANIMATIONS: there are none, and none are possible. AeroSpace repositions a
 # window with a single Accessibility API write — there is no tween and no config
@@ -77,24 +140,16 @@ gaps.inner.horizontal = 8
 gaps.inner.vertical   = 8
 gaps.outer.left       = 8
 gaps.outer.bottom     = 8
-# Per-monitor, because the built-in display has a notch and the externals don't.
-#
-# SketchyBar's islands are 26pt tall centred in a 32pt transparent bar, so their
-# bottom edge is at y=29; 37 = 29 + the usual 8pt gap. The bar draws inside the
-# area AeroSpace tiles into, so without this windows slide underneath it.
-#
-# The built-in gets 5, not 37. AeroSpace tiles inside the monitor's VISIBLE rect,
-# and macOS reserves that display's top 32pt as notch safe area even with the
-# menu bar auto-hidden (measured: safeAreaInsets.top = 32, visibleFrame 1512x950
-# of a 1512x982 frame). So the 32 is already excluded and only the remaining 5
-# has to be asked for. Measured to confirm: with a flat 34 here, a window on the
-# built-in landed at y=66 (= 32 + 34) while one on an external landed at y=34 —
-# a 32pt dead strip on the laptop only. 5 + 32 = 37 puts both at the same place.
+# 43 CLEARS SKETCHYBAR, and the two must move together. The islands are 32pt
+# tall centred in a 38pt bar, so their bottom edge is at y=35; 43 = 35 + the
+# usual 8pt gap. The bar draws inside the area AeroSpace tiles into, so without
+# this windows slide underneath it. Retune the bar height or the island height
+# and this number is wrong.
 #
 # Also paired with the macOS menu bar being auto-hidden (see the install script):
 # with the menu bar visible this would sit on top of its 30, and the bar would
 # land below it rather than at the top of the screen.
-gaps.outer.top        = [{ monitor.'built-in' = 5 }, 37]
+gaps.outer.top        = 43
 gaps.outer.right      = 8
 
 
@@ -110,13 +165,12 @@ gaps.outer.right      = 8
 # If a held-down alt-h/alt-l ever makes the pulse look like flicker, drop this
 # callback — the static ring survives on its own.
 #
-# Deliberately NOT 'move-mouse window-lazy-center' here: the pointer stays put
-# on window focus changes. The monitor callback below is a different thing — it
-# only fires when the focused *monitor* changes.
+# Deliberately NOT 'move-mouse window-lazy-center': the pointer stays put on
+# focus changes. (There was an on-focused-monitor-changed callback here too; it
+# can never fire with one screen.)
 on-focus-changed = [
     'exec-and-forget /bin/sh -c "borders active_color=0xffbabbf1; sleep 0.12; borders active_color=0xffca9ee6"',
 ]
-on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 
 # Pushes workspace switches to SketchyBar, which has no way to learn about them
 # on its own. Inert while sketchybar isn't running — the command just fails into
@@ -163,13 +217,36 @@ on-window-detected = [
     { if = 'test %{app-bundle-id} = com.titanium.OnyX',                    run = 'layout floating' },
     { if = 'test %{app-bundle-id} = com.jetbrains.toolbox',                run = 'layout floating' },
     # Raycast — the launcher panel itself is a non-activating window AeroSpace
-    # already ignores, but its Settings window tiles. Left COMMENTED because the
-    # bundle ID is unverified: Raycast is in the Brewfile but not installed here,
-    # and the Homebrew cask carries no zap/quit stanza to read it from. Per the
-    # rule above, read it rather than guess — install Raycast, open its Settings
-    # window, run `aerospace list-apps`, paste what it reports, and uncomment.
-    # A wrong ID does not error; the rule just never fires.
-    # { if = 'test %{app-bundle-id} = com.raycast.macos',                  run = 'layout floating' },
+    # already ignores, but its Settings window tiles. This was commented out for
+    # a long time on the belief that Raycast "is in the Brewfile but not
+    # installed here"; that had become false — /Applications/Raycast.app exists
+    # and its Info.plist gives the id below. Enabled.
+    # Caveat, same as the two rules further down: the id came from Info.plist,
+    # not from `aerospace list-apps` with the Settings window open, because
+    # Raycast was not running. If the rule never fires, that is the first thing
+    # to re-check — a wrong id does not error, it just never matches.
+    { if = 'test %{app-bundle-id} = com.raycast.macos',                    run = 'layout floating' },
+
+    # Float — games and compatibility layers. Different reason from the block
+    # above: these aren't utilities, they just tile badly. Game windows expect to
+    # own their geometry, and a tiling WM resizing them mid-session ranges from
+    # letterboxing to a wedged renderer.
+    { if = 'test %{app-bundle-id} = com.codeweavers.CrossOver',            run = 'layout floating' },
+    { if = 'test %{app-bundle-id} = com.valvesoftware.steam',              run = 'layout floating' },
+    #
+    # THESE TWO COVER THE LAUNCHERS, NOT THE GAMES. CrossOver is at
+    # ~/Applications/CrossOver.app (not /Applications), and every bottle gets its
+    # own generated launcher with a HASHED bundle id, e.g. measured here:
+    #   ~/Applications/CrossOver/Steam/Steam.app
+    #     com.codeweavers.CrossOverHelper.4DB4563826BAD0EB2F60EE6E42D0EA4B.D7B4…
+    #   ~/Applications/CrossOver/Battle.net/Battle.net.app
+    #     com.codeweavers.CrossOverHelper.747D99F92EE9C080BA26108AC5D26488.4C9D…
+    # So a window from a bottle does NOT match the CrossOver rule above, and
+    # pasting the hashes in would break the next time a bottle is created. If
+    # bottle windows need floating, run `aerospace list-apps` WITH THE GAME OPEN
+    # and add what it actually reports — per the "read it, don't guess" rule
+    # above. Both ids here came from each app's Info.plist; neither app was
+    # running to confirm against list-apps.
 
     # Place — chat/mail/notes open on their home screens (see the map below).
     { if = 'test %{app-bundle-id} = com.microsoft.teams2',  run = 'move-node-to-workspace 6' },
@@ -177,42 +254,11 @@ on-window-detected = [
     { if = 'test %{app-bundle-id} = md.obsidian',           run = 'move-node-to-workspace 8' },
 ]
 
-
-# ============================================================
-# Monitors
-# ============================================================
-# The desk, left to right — AeroSpace ordinals are ordered the same way, so its
-# numbering already matches the physical layout:
-#   1 = Built-in Retina Display  (left,   laptop)
-#   2 = P24h-2L (1)              (middle, macOS main display — the work screen)
-#   3 = P24h-2L (2)              (right,  side monitor)
-#
-# Both externals report the same name ("P24h-2L"); macOS appends (1)/(2) and
-# those suffixes can swap on reconnect, so they are never matched by name.
-#
-# The low numbers go to the middle screen deliberately: easiest keys on the
-# busiest monitor, at the cost of alt-N no longer tracking desk position.
-#
-#   LAPTOP        MAIN (middle)        SIDE
-#   ┌───────┐  ┌─────────────────┐  ┌───────┐
-#   │  8 9  │  │  1 2 3 4 5      │  │  6 7  │
-#   └───────┘  └─────────────────┘  └───────┘
-#
-# Every entry ends in a pattern that always resolves, so undocking or closing
-# the lid collapses workspaces onto a live screen instead of stranding them.
-#
-# NOTE: force-assignment makes `move-workspace-to-monitor` a no-op. Use
-# `move-node-to-monitor` (alt-ctrl-shift-h/l below) to shuffle windows instead.
-[workspace-to-monitor-force-assignment]
-    1 = 'main'                  # middle — the work screen
-    2 = 'main'
-    3 = 'main'
-    4 = 'main'
-    5 = 'main'
-    6 = ['3', 'secondary']      # right — ordinal with 3 screens, secondary with 2
-    7 = ['3', 'secondary']
-    8 = ['built-in', 'main']    # laptop — 'main' covers clamshell
-    9 = ['built-in', 'main']
+# There is no [workspace-to-monitor-force-assignment] section, deliberately —
+# with one screen every workspace lands there anyway. The app-placement rules
+# above still hold: Teams/Outlook/Obsidian open on workspaces 6/7/8 so they are
+# out of the way, which is now about workspace hygiene rather than which screen
+# they appear on.
 
 
 # ============================================================
@@ -229,18 +275,22 @@ on-window-detected = [
     # remote-control setup here for a new window to attach to.
     alt-shift-enter = 'exec-and-forget open -na kitty'
 
-    # Focus — the three monitors sit side by side, so h/l treat them as one
-    # continuous frame and walk across the edges. j/k stay workspace-local.
-    alt-h = 'focus --boundaries all-monitors-outer-frame left'
-    alt-j = 'focus down'
-    alt-k = 'focus up'
-    alt-l = 'focus --boundaries all-monitors-outer-frame right'
+    # Focus. --wrap-around because on one screen the alternative is a dead key:
+    # with two windows side by side, alt-l from the right-hand one used to do
+    # nothing at all, which reads as broken rather than as "no window there".
+    # Wrapping makes every press move focus somewhere.
+    alt-h = 'focus --wrap-around left'
+    alt-j = 'focus --wrap-around down'
+    alt-k = 'focus --wrap-around up'
+    alt-l = 'focus --wrap-around right'
 
-    # Move the focused window — h/l carry it onto the neighbouring monitor
-    alt-shift-h = 'move --boundaries all-monitors-outer-frame left'
+    # Move the focused window. NOT --wrap-around, deliberately: wrapping a MOVE
+    # reorders the tree and is awkward to undo, whereas a focus that wraps costs
+    # nothing. A move that stops at the edge is the safe default.
+    alt-shift-h = 'move left'
     alt-shift-j = 'move down'
     alt-shift-k = 'move up'
-    alt-shift-l = 'move --boundaries all-monitors-outer-frame right'
+    alt-shift-l = 'move right'
 
     # Resize
     alt-minus = 'resize smart -50'
@@ -252,37 +302,39 @@ on-window-detected = [
     # ^[F is bound to forward-word, but so is ^[f — this costs a duplicate.
     alt-shift-f = 'fullscreen'
 
-    # Workspaces
-    alt-1 = 'workspace 1'
-    alt-2 = 'workspace 2'
-    alt-3 = 'workspace 3'
-    alt-4 = 'workspace 4'
-    alt-5 = 'workspace 5'
-    alt-6 = 'workspace 6'
-    alt-7 = 'workspace 7'
-    alt-8 = 'workspace 8'
-    alt-9 = 'workspace 9'
+    # Workspaces. CTRL, NOT ALT — alt-<digit> is where the Danish layout keeps
+    # [ ] { } \ and binding it here makes them untypable system-wide. See the
+    # two-hazards note at the top of this file before changing this.
+    ctrl-1 = 'workspace 1'
+    ctrl-2 = 'workspace 2'
+    ctrl-3 = 'workspace 3'
+    ctrl-4 = 'workspace 4'
+    ctrl-5 = 'workspace 5'
+    ctrl-6 = 'workspace 6'
+    ctrl-7 = 'workspace 7'
+    ctrl-8 = 'workspace 8'
+    ctrl-9 = 'workspace 9'
 
-    # Send the focused window to a workspace
-    alt-shift-1 = 'move-node-to-workspace 1'
-    alt-shift-2 = 'move-node-to-workspace 2'
-    alt-shift-3 = 'move-node-to-workspace 3'
-    alt-shift-4 = 'move-node-to-workspace 4'
-    alt-shift-5 = 'move-node-to-workspace 5'
-    alt-shift-6 = 'move-node-to-workspace 6'
-    alt-shift-7 = 'move-node-to-workspace 7'
-    alt-shift-8 = 'move-node-to-workspace 8'
-    alt-shift-9 = 'move-node-to-workspace 9'
+    # Send the focused window to a workspace. ctrl-shift, matching the switch
+    # bindings above — alt-shift-7/8/9 are \ { } on this layout.
+    ctrl-shift-1 = 'move-node-to-workspace 1'
+    ctrl-shift-2 = 'move-node-to-workspace 2'
+    ctrl-shift-3 = 'move-node-to-workspace 3'
+    ctrl-shift-4 = 'move-node-to-workspace 4'
+    ctrl-shift-5 = 'move-node-to-workspace 5'
+    ctrl-shift-6 = 'move-node-to-workspace 6'
+    ctrl-shift-7 = 'move-node-to-workspace 7'
+    ctrl-shift-8 = 'move-node-to-workspace 8'
+    ctrl-shift-9 = 'move-node-to-workspace 9'
 
     alt-tab = 'workspace-back-and-forth'
     # Window-level counterpart to alt-tab. ^[` is unbound in emacs mode.
     alt-backtick = 'focus-back-and-forth'
-    # Was move-workspace-to-monitor, which force-assignment turns into a no-op.
-    alt-shift-tab = 'focus-monitor --wrap-around next'
 
-    # Throw the focused window one screen over and follow it there
-    alt-ctrl-shift-h = 'move-node-to-monitor --focus-follows-window left'
-    alt-ctrl-shift-l = 'move-node-to-monitor --focus-follows-window right'
+    # alt-shift-tab (focus-monitor) and alt-ctrl-shift-h/l (move-node-to-monitor)
+    # lived here and are gone with the second screen. That hands ^[^H
+    # (backward-kill-word) and ^[^L (clear-screen) back to the shell, and leaves
+    # three easy chords free if something else wants them.
 
     alt-shift-semicolon = 'mode service'
 
