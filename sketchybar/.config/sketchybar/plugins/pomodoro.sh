@@ -9,10 +9,6 @@ STATE="$(state_file pomodoro)"
 WORK_MIN=25
 BREAK_MIN=5
 
-# md-timer, not md-alarm — an alarm bell reads as "alarm clock" and competes with
-# the actual clock two pills to its right. Held in a variable because the idle and
-# running branches below both draw it, and they drifted apart the moment they
-# didn't share one.
 ICON="󱎫"
 
 now=$(date +%s)

@@ -5,11 +5,6 @@
 source "$HOME/.config/sketchybar/colors.sh"
 source "$HOME/.config/sketchybar/lib.sh"
 
-# CACHED, because the device name does not change between reboots and the lookup
-# is the most expensive thing in this script: `networksetup -listallhardwareports`
-# measured 40ms, and it ran on every single invocation to rediscover a constant.
-# $TMPDIR is cleared by macOS, so the cache re-warms on reboot, which is exactly
-# when the answer could legitimately differ.
 DEV_CACHE="$(state_file wifi-dev)"
 if [ -s "$DEV_CACHE" ]; then
     read -r dev < "$DEV_CACHE"

@@ -4,66 +4,22 @@
 # ============================================================
 # Docs: https://felixkratz.github.io/SketchyBar/
 #
-# WHY THIS EXISTS: with the Dock auto-hidden and nine numeric workspaces, there
-# was no way to see which workspaces held windows without switching to each one
-# to look. The workspace items on the left are the point; everything else is
-# filler.
+# ADD ORDER IS THE LAYOUT, and it runs in opposite directions on the two sides:
+# left items render in add order (first added sits furthest LEFT), right items
+# render in reverse (first added sits furthest RIGHT). So the right-hand half of
+# this file reads as the mirror of what is on screen. Moving an item between
+# sides means reversing its position in the file.
 #
-# Started by aerospace's after-startup-command, next to borders — not by
-# `brew services`, so the bar's lifetime is tied to the window manager's.
+# EVERYTHING HERE FAILS SILENTLY. A broken item does not error — it is simply
+# absent, or frozen at its last value, and the bar comes up looking fine. The
+# four traps that cause this are in CLAUDE.md; `scripts/lint-sketchybar.sh`
+# catches the three that are checkable statically. Run it after editing.
+#
 # To poke at it by hand: `pkill -x sketchybar` then `sketchybar &`.
-#
-# ONE SCREEN. This config is tuned for a single 2560x1440 external and carries
-# no notch arithmetic, no per-display scoping and no width budget. It used to:
-# on a 1512pt laptop the notch split the bar into two ~655pt runs and the right
-# one was genuinely oversubscribed, which drove several decisions here. All of
-# that was removed. If a notched display ever comes back, the measurements are
-# in git history — do not re-derive them.
-#
-# SHAPE: the bar itself is transparent. The brackets at the bottom of this file
-# are the only backgrounds drawn — three islands on the left (workspaces, front
-# app, music) and four on the right (system, status, network, hardware, time).
-# They are frosted individually; the bar behind them is not.
-#
-# Nothing is placed in the CENTRE. That is now a layout preference rather than a
-# constraint: the runs hug the edges and the middle stays clear, which is what
-# makes the bar read as two groups instead of one long strip.
-#
-# GEOMETRY, measured on this display. Only two things move: island.system with
-# the fan RPM digit count, and island.app with the focused app's name (front_app
-# applies no MAX_LEN, so it is ~8.1pt per character plus 24).
-#   island.spaces      8..195   187pt        island.system   1783..2013  230pt
-#   island.app       207..264    57pt        island.status   2025..2157  132pt
-#   island.media     (hidden)   192pt        island.network  2169..2275  106pt
-#                                            island.hardware 2287..2365   78pt
-#                                            island.time     2377..2552  175pt
-# ~1200pt of dead space between the runs, so nothing here is width-constrained.
-# Add what you like; just keep the middle clear.
-#
-# HEIGHT vs. GAPS — three settings that must move together:
-#   1. this bar's height (38). A legibility choice, not a measured constant.
-#   2. the islands' `background.height` (32), centred in that 38 — so their
-#      bottom edge lands at y=35.
-#   3. `gaps.outer.top` in aerospace.toml: 43, i.e. 35 + the usual 8pt gap. Get
-#      this wrong and windows either slide under the islands or leave a dead
-#      strip below them.
-#   ...and the macOS menu bar auto-hidden (`_HIHideMenuBar`, set by the install
-#      script). With it visible it reserves ~30pt and pushes this bar down below
-#      it rather than to the top of the screen.
-# Change the height and 43 stops matching.
 
 CONFIG_DIR="$HOME/.config/sketchybar"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
-# Plugins shell out to `aerospace` and `sketchybar`. Set PATH explicitly so the
-# bar behaves the same whether it was launched from a terminal or by launchd,
-# which starts with a minimal PATH.
-# BOTH Homebrew prefixes: /opt/homebrew on Apple Silicon, /usr/local on Intel.
-# Prepending a directory that does not exist is harmless, and this avoids paying
-# for a `brew --prefix` subprocess every time the bar starts. Without the Intel
-# entry every plugin depending on aerospace/macmon/gh/icalBuddy would silently
-# degrade on an Intel Mac — they all hide rather than error when a binary is
-# missing, so the bar would come up looking merely quiet.
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:$PATH"
 
 source "$CONFIG_DIR/colors.sh"
@@ -71,20 +27,13 @@ source "$CONFIG_DIR/colors.sh"
 FONT="FiraCode Nerd Font"
 
 # --- Bar ---------------------------------------------------
-# Transparent: the islands at the bottom of this file draw everything visible.
-# DO NOT put a colour or a blur here. A full-width frosted band was tried and
-# rejected — blur_radius on the BAR frosts the whole rectangle, gaps included,
-# which is the effect the islands exist to avoid. The pills carry their own blur
-# instead; see ISLAND_STYLE.
-# padding 8 matches aerospace's gaps.outer.left/right, so the islands line up
-# with the window column underneath.
+# The bar itself draws NOTHING — it is transparent, and the brackets at the
+# bottom of this file are the only backgrounds on screen. That is what makes the
+# islands read as separate frosted pills rather than one long strip.
 #
-# The notch properties (notch_width, notch_display_height, notch_offset) were
-# set here and are gone — they only do anything on a display with a notch, and
-# there is not one. Worth knowing if they ever come back: NONE of them are echoed
-# by `sketchybar --query bar`, the same silent-property trap as label.max_chars
-# on the music item, so a wrong value looks exactly like a right one. The only
-# feedback is that an invalid property errors on --bar.
+# height=38 IS COUPLED TO aerospace.toml. `gaps.outer.top = 43` there is this
+# height plus 5pt of clearance; change one without the other and windows either
+# tuck under the bar or leave a visible band.
 sketchybar --bar \
     height=38 \
     position=top \
@@ -95,186 +44,47 @@ sketchybar --bar \
     shadow=off
 
 # --- Item defaults -----------------------------------------
-# SPACING CONTRACT — every gap between two items comes out at 12pt.
-# The gap is the trailing padding of one item plus the leading padding of the
-# next, so 6 on each OUTER edge (icon.padding_left, label.padding_right) gives
-# 12; the INNER 3+3 only separates an icon from its own label. Two ways it
-# drifts, both of which this config has been bitten by:
-#   - an item that overrides an OUTER padding changes the gap. Override the
-#     inner ones instead, or the pill/background paddings.
-#   - a hidden label contributes nothing at all, its padding included, so the
-#     trailing edge falls back to icon.padding_right (3) and the gap collapses
-#     to 9. An item that hides its label must set icon.padding_right=6 while
-#     hidden — see amphetamine.sh and bluetooth.sh.
-#   - islands swallow padding at a group boundary, in both directions. A
-#     bracket's rect runs from the outer edge of its first member's
-#     background.padding_left to the outer edge of its last member's
-#     background.padding_right. Two consequences, both measured:
-#       (a) you CANNOT open a gap between two islands with item padding — both
-#           sides get absorbed as interior padding and the islands still touch.
-#           Space between islands comes only from an item that belongs to
-#           neither bracket — spacer.system and spacer.media below.
-#       (b) interior padding has to come from something INSIDE the bracket —
-#           either a dedicated pad item (what the islands use, see ISLAND
-#           PADDING) or background.padding_* on the first/last member. Both grow
-#           the island inward, leave the outer edge pinned to the bar padding,
-#           and leave every 12pt gap — inter-item and inter-island — untouched.
-#           background.padding_* additionally does not resize the member's own
-#           background, so it cannot distort a member's pill.
-#     Setting background.padding_* on the BRACKET itself does nothing at all;
-#     group bounds are computed purely from the members.
-#
-# ISLAND PADDING — 12pt of interior clearance at each island end, built as a
-# dedicated 6pt PAD ITEM inside the bracket plus the 6pt outer padding of the
-# end member beside it. 6 alone read cramped against the islands' 13pt corner
-# radius, which is why it is 12.
-#
-# THE PAD ITEMS ARE THE POINT, and the obvious alternative is a trap. Setting
-# background.padding=6 on an island's first and last member is what this config
-# used to do, and it is broken by construction: per the bullet above, a hidden
-# item contributes NOTHING — its background.padding included — so the moment an
-# end member hides, a different item becomes the end, carries no
-# background.padding, and the interior silently halves to 6. Measured on the
-# running bar before the fix, in the ordinary state where calendar, vpn and
-# weather are all hidden:
-#   island.time      6pt left  / 12pt right     island.hardware  12 / 12 (ok)
-#   island.network   6pt left  / 12pt right
-#   island.status   12pt left  /  6pt right
-# That is the COMMON case, not an edge case — calendar is hidden for most of the
-# day, vpn whenever nothing is connected, weather until it first fetches. A pad
-# item has no script and never hides, so the interior stays 6+6 whatever else
-# comes and goes, with no per-plugin bookkeeping.
-#
-# THE RULE: an island that must NEVER COLLAPSE gets pad items; an island that
-# must be ABLE to collapse keeps background.padding on its end members, because
-# a pad would never hide and would strand an empty pill. Only system and media
-# collapse — see the note at their brackets.
-#   spaces    inset.spaces.l   / inset.spaces.r     network   inset.network.l  / .r
-#   time      inset.time.l     / inset.time.r       status    inset.status.l   / .r
-#   hardware  inset.hardware.l / inset.hardware.r
-#   system    cpu / thermals            background.padding — collapses
-#   media     music, both ends          background.padding — collapses
-#
-# Verified against the running bar rather than assumed: a bracket DOES include a
-# member whose icon, label and background are all drawing=off, and sizes it from
-# its `width`. A three-item test bracket (6pt pad, 42pt item, 6pt pad) measured
-# 54pt, with 12pt from each bracket edge to the label's ink.
+# `updates=when_shown` below is the reason `updates=on` appears a dozen times in
+# this file. Under it, a hidden item stops being updated ENTIRELY — so any item
+# whose script can hide itself would run once, hide, and never be polled again.
+# Every self-hiding item therefore overrides it. See CLAUDE.md trap 1; the linter
+# checks this one automatically.
 sketchybar --default \
     updates=when_shown \
     icon.font="$FONT:Medium:14.5" \
     icon.color="$TEXT" \
     icon.padding_left=6 \
     icon.padding_right=3 \
-    `# OPTICAL ALIGNMENT. Icons look ~2 physical pixels low next to their text.` \
-    `# The icons are innocent: measured with CoreText against this exact face,` \
-    `# every Nerd Font glyph lands dead centre (0.00pt) while the LABELS ride` \
-    `# high — 'Fri 31 Jul 23:26' by +1.06pt, '65%' by +0.54pt.` \
-    `# Cause: text_calculate_bounds centres each run by FONT METRICS, not ink —` \
-    `#   origin.y = y - (line.ascent - line.descent) / 2` \
-    `# The numbers below were measured at the ORIGINAL 13.0/12.0 sizes. They` \
-    `# still hold in shape at 14.5/13.5 — the offset scales with the point size,` \
-    `# so the ideal is now ~1.125 and 1 is still the nearest integer.` \
-    `# The 12pt face reports ascent 11.08 / descent 3.69, so the box reserves` \
-    `# descender room. A label with no descender fills only the top of that box,` \
-    `# and metric-centring lifts it. Nerd Font's icons are drawn centred on the em` \
-    `# box, so they land where the formula intends.` \
-    `# NOT a size mismatch: the ratios are identical at both sizes` \
-    `# (11.08/12 = 12.00/13 = 0.923), which also proves no font fallback.` \
-    `# +1 raises the icons to meet the text. It is applied to the ICONS rather` \
-    `# than the labels on purpose — the workspace items are label-only` \
-    `# (icon.drawing=off), so a label offset would shift the workspace numbers` \
-    `# inside their mauve pill and move every popup label too.` \
-    `# The residual is content-dependent and unfixable by a constant: ink bounds` \
-    `# follow the glyphs while the metric box does not, so +1 lands 0.06pt off a` \
-    `# tall label and 0.46pt off '65%'. Both are better than before; ~1 physical` \
-    `# pixel of spread is inherent. Set 0 to restore the old behaviour exactly.` \
     icon.y_offset=1 \
     label.font="$FONT:Medium:13.5" \
     label.color="$TEXT" \
     label.padding_left=3 \
     label.padding_right=6 \
-    `# The focused-workspace pill (aerospace.sh is the only thing that turns` \
-    `# this on). radius is half of height, which is what makes it a pill and` \
-    `# not a rounded rectangle; 26 inside the islands' 32 insets it by 3.` \
     background.corner_radius=13 \
     background.height=26 \
     background.color="$MAUVE" \
     background.drawing=off
 
 # --- Invisible width ---------------------------------------
-# One idiom, two uses: a 12pt SPACER between two islands (spacer.*), and a 6pt
-# INSET inside one (inset.*). Both are ordinary items with nothing drawn, so
-# `width` is the whole of them — an item with icon, label and background all off
-# has no natural width.
-#
-# Note this is NOT the same as item-level drawing=off. A hidden item contributes
-# no width at all; these are visible items that happen to paint nothing, which is
-# exactly why they hold their space and never disappear.
-#
-# NAMING TRAP — DO NOT name a bracket member `p<anything>.<anything>`. sketchybar
-# parses the member list of `--add bracket` through the same code as an item's
-# POSITION argument, and its popup check is loose enough that any token starting
-# with `p` and containing a dot is taken for `popup.<host>`. These items were
-# called `pad.<island>.<l|r>` first, and every bracket silently failed to exist:
-#     [!] Add (Popup) island.time: Item 'time.r' is not a valid popup host
-#     [!] Set: Item not found 'island.time'
-# The bar comes up with no pills at all and the only clue is on stderr, which
-# nothing reads when aerospace launches this. Probed against the running bar:
-# `pad.` `pads.` `pa.` `p.` `plate.` all fail; `inset.` `xad.` `zzpad.` and
-# `pad_zz_l` are all fine. `pomodoro` is safe only because it has no dot in it.
+# Draws nothing but still occupies its width — which `drawing=off` would not, as
+# that contributes no width at all. Two distinct jobs use it, and the difference
+# matters because a bracket's rect runs to the outer edge of its end members:
+#   spacer.*  width 12, OUTSIDE every bracket — the only way to open a gap
+#             BETWEEN two islands. Item padding cannot do it; the islands would
+#             absorb it and still touch.
+#   inset.*   width  6, INSIDE a bracket — interior padding at the island's ends.
 BLANK_STYLE=(icon.drawing=off label.drawing=off background.drawing=off)
 
 # --- Workspaces --------------------------------------------
-# AeroSpace pushes this event from exec-on-workspace-change; sketchybar has no
-# way to learn about a workspace switch on its own.
+# ONE DRIVER, NINE PILLS. `spaces.driver` is a zero-width item with the only
+# script here; it repaints every space.N pill from three `aerospace` queries per
+# run (workspaces.sh). The pills themselves have no script and no update_freq.
+#
+# Nothing tells SketchyBar that a workspace changed, so aerospace.toml's
+# `exec-on-workspace-change` triggers the custom event added below. Without that
+# line in the other file, this section is inert.
 sketchybar --add event aerospace_workspace_change
 
-# The names are collected as they're added so the bracket at the bottom can
-# reuse them. Calling `aerospace list-workspaces --all` a second time down there
-# would be a second source of truth, and a bracket that names a nonexistent item
-# only warns — it doesn't fail — so the drift would be silent.
-# Plain digits, which is the workspace name straight from aerospace — no mapping
-# table, nothing to keep in sync.
-#
-# Alternatives were tried and measured; if you revisit this, the numbers are:
-#   plain digits          ink 5.29–5.98   island 182pt
-#   md-roman_numeral_*    ink 2.02–10.50  island 182pt  (U+F1088..F1090, I..IX)
-#   Elder Futhark runes   ink 7.45–12.21  island 185pt  — NOT in this font, they
-#                                         fall back to Apple Symbols
-# Island totals barely differ, so this is purely a legibility call, and digits
-# win it for the one item whose entire job is telling workspaces apart at a
-# glance. They also have the tightest ink spread, so the focused pill stays the
-# same size on every workspace — roman numerals swing from 2pt (I) to 10.5pt
-# (VIII) and the pill visibly resizes as you move around.
-#
-# Three traps if you do try glyphs again, all of which bit during that attempt:
-#   1. Verify the glyph NAME, not just that the codepoint exists. Presence and
-#      width say nothing about which picture you get — a guessed base codepoint
-#      put md-reminder, md-salesforce and md-tractor on workspaces 1, 3 and 7.
-#      Read names with CGFont.name(for:).
-#   2. Names can mislead too: U+F1088/U+F108C report as "alpha-i"/"alpha-v" but
-#      really are I and V. Render to a PNG and look.
-#   3. Measure INK, not the typographic advance. text_prepare_line sizes items
-#      with kCTLineBoundsUseGlyphPathBounds and Nerd Font glyphs are drawn wider
-#      than their cell, so a "monospaced" 7.38 advance means nothing.
-# ONE DRIVER REPAINTS ALL NINE PILLS. The workspace items carry no script and no
-# subscription of their own; this invisible item owns both and rewrites every
-# pill in a single sketchybar call — see plugins/workspaces.sh.
-#
-# Each pill used to run its own copy of the plugin, and each copy shelled out to
-# `aerospace list-workspaces` to ask a question whose answer is the same for all
-# nine. Measured 25ms per call, 104ms for the nine, plus nine greps — and because
-# they were also subscribed to front_app_switched, all of that ran on every
-# application switch. Now it is 2 aerospace calls and 1 sketchybar call.
-#
-# width=0 so it takes no space. It is BLANK_STYLE (visible, paints nothing)
-# rather than drawing=off, because a hidden item is not laid out at all — and it
-# needs updates=on for the same reason every self-hiding item does: an item that
-# is not drawn is not updated under the config-wide when_shown default.
-#
-# It sits OUTSIDE island.spaces deliberately. A bracket's rect is the union of
-# its members, so a zero-width member would not change the pill, but keeping the
-# driver out of the group keeps "what the island contains" honest.
 sketchybar \
     --add item spaces.driver left \
     --subscribe spaces.driver aerospace_workspace_change front_app_switched \
@@ -293,12 +103,8 @@ for sid in $(aerospace list-workspaces --all); do
         --set "space.$sid" \
             label="$sid" \
             icon.drawing=off \
-            `# 6/6 keeps the 12pt contract (the icon is off, so the label's` \
-            `# padding is the outer edge). It doubles as the pill's interior.` \
             label.padding_left=6 \
             label.padding_right=6 \
-            `# click_script only. The colours come from spaces.driver above; an` \
-            `# item needs no script of its own to be repainted by another item.` \
             click_script="aerospace workspace $sid"
     space_items+=("space.$sid")
 done
@@ -308,270 +114,61 @@ sketchybar \
     --set inset.spaces.r "${BLANK_STYLE[@]}" width=6
 
 # --- Front app ---------------------------------------------
-# --- Front app ---------------------------------------------
-# Name of the focused app.
-#
-# ORDER IS THE LAYOUT on this side too, but the other way round from the right:
-# left items render in ADD order, so first added sits furthest LEFT. These two
-# blocks therefore have to stay between the workspace loop above and the
-# now-playing block below to read [spaces] [app] [media]. (The note that used to
-# live here said "and the system metrics below" — those are on the right now.)
-#
-# Note the spacer: a bracket's rect runs to the outer edge of its first and last
-# member, so an item INSIDE a group can never open a gap between groups — only an
-# item outside both can. BLANK_STYLE draws nothing but keeps its width, which is
-# the point — an item with drawing=off contributes no width at all and the
-# islands would touch.
+# End of the left run — nothing is added `left` after this. Its island breathes
+# with the app name (no max_chars), which is the only variable width on this side.
 sketchybar \
     --add item spacer.apps left \
     --set spacer.apps "${BLANK_STYLE[@]}" width=12
 
-# THIS ISLAND CANNOT COLLAPSE, so background.padding on the sole member is safe.
-# front_app.sh always sets a label — it falls back to "—" when aerospace cannot
-# name the focused window — and never sets drawing=off, so island.app is always
-# drawn and spacer.apps can never be orphaned.
-#
-# The usual objection to background.padding (see ISLAND PADDING at the top) is
-# that a hidden end member takes its padding with it and the interior silently
-# halves. That cannot happen here: with ONE member there is no other item that
-# could become the end, and if it ever did hide the whole bracket would go with
-# it. Pad items would buy nothing and cost two more items.
-#
-# WIDTH IS UNBOUNDED, unlike every other island on this run. front_app.sh applies
-# no MAX_LEN, so the pill tracks the app name: ~8.1pt per character plus 12pt of
-# label padding and 12pt of interior. "kitty" ~64pt, "Google Chrome" ~129pt,
-# "IntelliJ IDEA Ultimate" ~202pt. There is ~1200pt of clear space to its right
-# so none of that matters here — but it IS the only thing on this side that
-# moves, and a MAX_LEN in front_app.sh is the lever if it ever reads too wide.
 sketchybar \
     --add item front_app left \
     --subscribe front_app front_app_switched \
     --set front_app \
         icon.drawing=off \
         label.color="$SUBTEXT0" \
-        `# The icon is off, so the label's padding IS the outer edge — 6/6 keeps` \
-        `# the 12pt spacing contract. padding_right is already 6 by default.` \
         label.padding_left=6 \
-        `# Sole member of its island, so it carries both ends' padding.` \
         background.padding_left=6 \
         background.padding_right=6 \
         script="$PLUGIN_DIR/front_app.sh"
 
-# --- System metrics ----------------------------------------
-# MOVED TO THE RIGHT SIDE — see the SYSTEM block at the end of the right-side
-# sequence below. The left run is now just the workspaces and the music island.
 
-# --- Now playing -------------------------------------------
-# Apple Music now-playing, in its own island so it can vanish cleanly: a bracket
-# whose every member is hidden goes to g_nirvana and draws nothing, leaving no
-# empty pill behind. Right-click opens a transport popup, which costs no bar
-# width — that is why prev/next are not inline items.
+# --- Service mode indicator --------------------------------
+# A modal pill for AeroSpace's service mode (entered with alt-shift-semicolon).
+# CENTER, so it sits apart from the left/right runs and add-order does not matter.
 #
-# spacer.media now separates this island from island.spaces rather than from
-# island.system, which moved right. It is still needed for exactly the same
-# reason: a bracket's rect runs to the outer edge of its end members, so only an
-# item belonging to NEITHER bracket can open a gap between two islands.
+# Hidden by default (drawing=off) so island.mode draws nothing; AeroSpace toggles
+# it from the bindings THEMSELVES, not a callback, because on-mode-changed carries
+# no mode name (AeroSpace issue #390) — see aerospace.toml's service-mode section.
+#
+# No script and no update_freq: it is driven purely by `--set` from aerospace.toml,
+# so the when_shown/updates=on trap does NOT apply here. That trap is only for an
+# item that must run its OWN script to un-hide; this one is written from outside.
 sketchybar \
-    --add item spacer.media left \
-    --set spacer.media "${BLANK_STYLE[@]}" width=12
+    --add item aerospace_mode center \
+    --set aerospace_mode \
+        drawing=off \
+        icon="󰒓" \
+        icon.color="$PEACH" \
+        label="SERVICE" \
+        label.color="$PEACH"
 
-sketchybar \
-    --add item music left \
-    --subscribe music mouse.clicked \
-    --set music \
-        `# SELF-HIDING ITEM -> updates=on. music.sh calls hide() whenever Apple` \
-        `# Music is not running, which is the NORMAL state, so this item spends` \
-        `# most of its life hidden. Without this it stops being polled the first` \
-        `# time it hides and the pill never comes back when you start playing.` \
-        `# This was the ninth item with that bug and the only one a hand audit` \
-        `# missed: its hide() was a local function, so a grep for a literal` \
-        `# drawing=off on NAME never saw it. scripts/lint-sketchybar.sh found it,` \
-        `# which is the argument for having the linter at all.` \
-        updates=on \
-        `# Alone in its island, so it carries both ends' padding. Like` \
-        `# island.system this stays on background.padding rather than pad items,` \
-        `# because island.media exists precisely to vanish and a pad would keep` \
-        `# an empty pill on screen. See ISLAND PADDING at the top.` \
-        background.padding_left=6 \
-        background.padding_right=6 \
-        `# FIXED WIDTH + SCROLLING TEXT. island.media is the same size whatever is` \
-        `# playing, so the left run does not reflow every time the track changes` \
-        `# — which is the real win, since island.app beside it already moves with` \
-        `# the app name. It replaces a MAX_LEN cut in music.sh, which capped` \
-        `# CHARACTERS against a budget measured in POINTS and so overflowed on` \
-        `# wide titles and wasted room on narrow ones.` \
-        `#` \
-        `# FOUR properties, and missing any one of them fails quietly:` \
-        `#   label.max_chars   THE ONE THAT DRIVES IT. sketchybar scrolls text` \
-        `#                     "truncated by the max_chars property" — clipping by` \
-        `#                     label.width alone does NOT start a scroll, it just` \
-        `#                     cuts the text off. Note it is label-scoped: a bare` \
-        `#                     item-level max_chars is rejected outright.` \
-        `#   scroll_texts      enables the animation. Off by default.` \
-        `#   label.width       fixes the visible text box, so the pill is the same` \
-        `#                     size whatever is playing. Without it the label` \
-        `#                     renders at its natural extent — measured, the` \
-        `#                     bracket spanned 303pt even with item width= set,` \
-        `#                     because group bounds come from the label, not from` \
-        `#                     the item.` \
-        `#   width             pins the pill so short titles don't shrink it.` \
-        `#` \
-        `# label.max_chars is NOT echoed by \`sketchybar --query\`, so a missing or` \
-        `# misspelled value looks identical to a correct one. Invalid properties do` \
-        `# error on --set, though, which is the only feedback available here.` \
-        `#` \
-        `# THE RULE, established by measurement: the max_chars-truncated text must` \
-        `# FIT INSIDE label.width. Give the box less room than the text needs and` \
-        `# sketchybar clips instead of animating — the pill looks right and sits` \
-        `# perfectly still. It is not "scroll when the text overflows"; it is the` \
-        `# other way round, and getting it backwards costs an hour.` \
-        `#` \
-        `# THE GATE, in src/text.c:277 — text_animate_scroll() opens with` \
-        `#     if (has_const_width && custom_width < width) return false;` \
-        `# where \`width\` is the max_chars-TRUNCATED width and \`custom_width\` is` \
-        `# label.width. So label.width must be >= the truncated text, and when it` \
-        `# is not you get a still, clipped label rather than any error.` \
-        `#` \
-        `# Truncated ink per max_chars, MEASURED AGAINST THE RUNNING BAR at` \
-        `# label.font 13.5 — a probe item with label.width dynamic and a long` \
-        `# label, reading back the item width and subtracting its 9pt of label` \
-        `# padding (icon.drawing=off, so the icon contributes nothing):` \
-        `#     chars  10  12  13  14  16  18  20` \
-        `#     points 83  92 108 116 133 142 166` \
-        `# ~8.1pt per character, because FiraCode is MONOSPACED — every 16-char` \
-        `# string lands within a few pt of every other (measured across real` \
-        `# titles: 123, 131, 132, 134). The small jitter is side bearings at the` \
-        `# truncation point, not content width.` \
-        `#` \
-        `# 16 chars = 133pt in a 146pt box: 13pt of slack, so a title of unusually` \
-        `# wide glyphs still fits and keeps scrolling. That slack is deliberate —` \
-        `# clipping is the failure mode, so err generous.` \
-        `#` \
-        `# THIS TABLE REPLACED AN EARLIER ONE THAT WAS WRONG, and the way it was` \
-        `# wrong is worth keeping. It read` \
-        `#     chars  10  12  13  14  16  18  20` \
-        `#     points 56  71  71  86 100 115 115` \
-        `# — note 12 and 13 tie, and 18 and 20 tie. A monospaced face cannot do` \
-        `# that; the plateaus are a fixed-width floor clamping the reading, which` \
-        `# is exactly the trap its own note warned about and then fell into. It` \
-        `# undersold 16 chars by ~33pt, which is how both 112 and its scaled` \
-        `# successor 126 came to be set BELOW the text they had to contain. This` \
-        `# item most likely never scrolled until 146.` \
-        `#` \
-        `# MEASURE AGAINST FiraCodeNF-Med, NOT "FiraCode Nerd Font Medium". That` \
-        `# name does not resolve: CoreText silently falls back to HELVETICA and` \
-        `# only maps the Nerd Font PUA glyphs to FiraCodeNF-Reg, so a measurement` \
-        `# taken that way is of the wrong face entirely and no error is raised.` \
-        `# The tell is the one above — a proportional face makes 16-char strings` \
-        `# range wildly (47..204pt was the bogus reading) where a monospaced one` \
-        `# cannot. Better still, measure the running bar with a probe item as the` \
-        `# table above does, which cannot pick the wrong font by construction.` \
-        `#` \
-        `# THE TABLE IS FONT-DEPENDENT, so RETUNING label.font BREAKS THIS ITEM` \
-        `# unless label.width moves with it: the points scale linearly with the` \
-        `# point size while max_chars does not.` \
-        `#` \
-        `# 180 is a comfort choice, not a constraint — the left run ends around` \
-        `# x=456 with ~1200pt clear to its right, so there is plenty of headroom` \
-        `# to widen this (raise max_chars AND label.width together, per the rule` \
-        `# above; raising one alone silently stops the scroll).` \
-        `#` \
-        `# width stays 180 while label.width grew to 146: measured with a probe at` \
-        `# label.width=146, the natural content width is 163pt, so the 180pt pin` \
-        `# still contains it and the pill does not need to grow.` \
-        width=180 \
-        label.width=146 \
-        label.max_chars=16 \
-        scroll_texts=on \
-        label.scroll_duration=100 \
-        popup.horizontal=on \
-        popup.background.color="$ISLAND" \
-        popup.background.border_width=1 \
-        popup.background.border_color="$ISLAND_BORDER" \
-        popup.background.corner_radius=10 \
-        update_freq=10 \
-        script="$PLUGIN_DIR/music.sh"
-
-sketchybar \
-    --add item music.prev popup.music \
-    --set music.prev icon="󰒮" label.drawing=off \
-        click_script="osascript -e 'tell application \"Music\" to previous track' >/dev/null 2>&1; sketchybar --set music popup.drawing=off" \
-    --add item music.play popup.music \
-    --set music.play icon="󰐊" label.drawing=off \
-        click_script="osascript -e 'tell application \"Music\" to playpause' >/dev/null 2>&1; sketchybar --set music popup.drawing=off" \
-    --add item music.next popup.music \
-    --set music.next icon="󰒭" label.drawing=off \
-        click_script="osascript -e 'tell application \"Music\" to next track' >/dev/null 2>&1; sketchybar --set music popup.drawing=off"
 
 # --- Right side --------------------------------------------
-# FIVE islands, grouped by category. Right items render in ADD order, so the
-# first item added sits furthest right and the reading order below is the mirror
-# of what you see:
+# SIX islands, grouped by category. Read this half BACKWARDS: the first item
+# added sits furthest right, so the file order is the mirror of the screen.
 #
-#   screen:  [ system ] [ status ] [ network ] [ hardware ] [ time ]
-#   added:     time -> hardware -> network -> status -> system
+#   screen:  [ media ] [ system ] [ status ] [ network ] [ hardware ] [ time ]
+#   added:     time -> hardware -> network -> status -> system -> media
 #
-# THE ADD ORDER IS THE LAYOUT. On this side "added earlier" means "further
-# right", which inverts two things people get wrong when moving an item here from
-# the left (island.system was moved exactly this way):
-#   - a SPACER has to be added BEFORE the island it sits to the right of, not
-#     after it.
-#   - an island's MEMBERS have to be added in reverse of their screen order, so
-#     `cpu memory thermals` left-to-right is added thermals, memory, cpu.
-# background.padding_left/right do NOT invert — they stay screen-space. Verified
-# in src/bar.c: a POSITION_RIGHT item walks leftward via
-# `next_position -= length + padding_right` and then `-= padding_left`.
-#
-# volume and wifi ride native events (volume_change, wifi_change) and never poll;
-# the rest are on timers, because macOS publishes no event for any of them.
-#
-# EVERY ISLAND NEEDS AN ITEM THAT NEVER HIDES, with one deliberate exception. A
-# bracket whose members have all hidden collapses to g_nirvana and draws nothing —
-# but the spacer beside it is a separate item and stays, so the bar is left with
-# an orphaned 12pt gap. The four anchors are clock, volume, wifi and pomodoro.
-#
-# EIGHT ITEMS SET drawing=off ON THEMSELVES, AND EVERY ONE NEEDS updates=on:
-#   battery  brightness  bluetooth  calendar  weather  github  vpn  mic
-# (amphetamine is NOT one of them — it only hides its LABEL, never the item, so
-# when_shown is correct there. Check for item-level `drawing=off` in the plugin
-# before assuming.)
-#
-# WHY: a self-hiding item under the config-wide when_shown default cannot
-# un-hide. bar_item_update() gates timed AND event runs behind
-# `updates_only_when_shown ? is_shown : true`, and bar_draw() clears the bar
-# association of anything it does not draw. The item works right after a reload,
-# hides itself when there is nothing to show, and then never runs again —
-# silently. Seven were found in that state or heading for it and fixed here;
-# volume and brightness were fixed earlier. weather is the sharpest example: it
-# hides on a failed fetch, so one flaky request retired it for good.
-# If you add a hideable item, this is the property you will forget.
-# island.system is the exception — it EXISTS to collapse (system.sh hides all
-# three members when macmon fails) and so has no anchor by design. That is safe
-# only because it is the OUTERMOST island on this side: its orphaned spacer is
-# then empty space at the leading edge of the run, where nothing can see it.
-# Move island.system inboard and the orphan becomes a visible gap between two
-# drawn islands, which is what it used to be on the left.
-# Do not regroup these without checking each island keeps one.
-# CAVEAT on island.hardware: volume is NOT a dependable anchor and the old note
-# here — "volume.sh does hide it if the level is unreadable, which is a failure
-# state rather than a normal one" — was wrong. Unreadable is the NORMAL state for
-# a class-compliant USB audio interface, which has no software volume at all, so
-# this island is really anchored by brightness alone whenever one is in use.
-# The pad items below do NOT count as anchors — they hold each island's interior
-# padding, not its reason to exist, and an island of nothing but pads would be a
-# 12pt empty pill.
-#
-# EACH ISLAND IS BRACKETED BY AN INSET ITEM, inset.<island>.l / .r, which is what
-# keeps its interior at 12pt on both ends no matter which members are hidden.
-# They are added in the same mirrored order as everything else here: the .r pad
-# FIRST (furthest right), the .l pad LAST. See ISLAND PADDING at the top for why
-# background.padding on the end members is not good enough.
-#
-# Splitting is not free: each extra island costs 12pt of spacer plus 12pt of new
-# interior padding. Going from one island to four cost 72pt of a 655pt budget —
-# see the width budget at the top of this file.
+# Two consequences that are easy to get wrong when moving an item here:
+#   - a SPACER is added BEFORE the island it sits to the right of, not after.
+#   - an island's MEMBERS are added in reverse of their screen order — the
+#     `cpu memory thermals` group is added thermals, memory, cpu.
+# background.padding_left/right do NOT invert; they stay screen-space.
 
 # TIME ------------------------------------------------------
+# Clock, plus a calendar item that hides when the day has nothing left in it and
+# shows its next event in a popup on hover.
 sketchybar \
     --add item inset.time.r right \
     --set inset.time.r "${BLANK_STYLE[@]}" width=6
@@ -579,28 +176,19 @@ sketchybar \
 sketchybar \
     --add item clock right \
     --set clock \
-        `# md-calendar_clock, not md-clock: this item shows the DATE and the` \
-        `# time ("Fri 31 Jul 23:26"), so a bare clock face undersells it. It` \
-        `# stays distinct from the calendar item beside it, which is plain` \
-        `# md-calendar — using md-calendar here would give island.time two` \
-        `# identical icons.` \
         icon="󰃰" \
         icon.color="$BLUE" \
-        update_freq=15 \
+        update_freq=1 \
         script="$PLUGIN_DIR/clock.sh"
 
-# Next event today. The bar label is the START TIME only — a title costs 60-100pt
-# on this side — with the title in a popup, which costs no bar width.
 sketchybar \
     --add item calendar right \
-    `# Hover reveals the title; there is no room for it on the bar itself.` \
     --subscribe calendar system_woke mouse.entered mouse.exited \
     --set calendar \
         popup.background.color="$ISLAND" \
         popup.background.border_width=1 \
         popup.background.border_color="$ISLAND_BORDER" \
         popup.background.corner_radius=10 \
-        `# SELF-HIDING ITEM -> updates=on. See the volume item.` \
         updates=on \
         update_freq=300 \
         script="$PLUGIN_DIR/calendar.sh" \
@@ -613,6 +201,16 @@ sketchybar \
     --set inset.time.l "${BLANK_STYLE[@]}" width=6
 
 # HARDWARE --------------------------------------------------
+# On this machine `battery` and `volume` are hidden essentially always — a Mac
+# Studio has no battery, and the class-compliant USB interface exposes no
+# software volume — so `brightness` carries this island alone. It cannot vanish
+# (the insets never hide), so if brightness ever failed too the result would be
+# an empty 12pt pill rather than a clean disappearance.
+#
+# brightness polls every 5s and that is deliberate despite being the single
+# largest CPU line in the bar (312 ms/min of ~1430 total). The poll is the
+# PRIMARY path, not a backstop: this display is driven by MonitorControl's gamma
+# dimming, which posts no brightness_change event at all.
 sketchybar \
     --add item spacer.hardware right \
     --set spacer.hardware "${BLANK_STYLE[@]}" width=12
@@ -625,37 +223,14 @@ sketchybar \
     --add item battery right \
     --subscribe battery power_source_change system_woke \
     --set battery \
-        `# SELF-HIDING ITEM -> updates=on. See the volume item. This one is easy` \
-        `# to dismiss as harmless because the item is hidden while on AC — but` \
-        `# that is exactly the state it is in when you unplug, and without this` \
-        `# it would never notice.` \
         updates=on \
         update_freq=120 \
         script="$PLUGIN_DIR/battery.sh"
 
-# Brightness of whatever display is MAIN — not just the built-in, despite what
-# this comment used to say. brightness.sh branches on CGDisplayIsBuiltin: a real
-# backlight is read from DisplayServices, an external is read back off its GAMMA
-# RAMP, which is what MonitorControl's software dimming actually manipulates.
-# See the long note at the top of that script for why DDC is the wrong source.
-#
-# Subscribed to the native event for instant response, with a 5s poll behind it —
-# the event is not guaranteed to fire for every brightness source, and both reads
-# are cheap. The 5s poll is what carries MonitorControl, which emits no event at
-# all: nothing tells sketchybar that a third-party app rewrote the gamma table.
 sketchybar \
     --add item brightness right \
     --subscribe brightness brightness_change system_woke \
     --set brightness \
-        `# updates=on, NOT the config-wide when_shown default — the same one-way` \
-        `# door proved on the volume item. brightness.sh sets drawing=off when it` \
-        `# cannot read a level, and bar_item_update() gates TIMED runs as well as` \
-        `# event ones behind` \
-        `#     should_update = updates_only_when_shown ? is_shown : true` \
-        `# while bar_draw() clears the bar association of anything it does not` \
-        `# draw. Under when_shown the 5s poll below would stop the instant the` \
-        `# item hid, so it could never read its way back — permanently and` \
-        `# silently gone until a config reload.` \
         updates=on \
         update_freq=5 \
         script="$PLUGIN_DIR/brightness.sh"
@@ -664,30 +239,6 @@ sketchybar \
     --add item volume right \
     --subscribe volume volume_change \
     --set volume \
-        `# NO LONGER island.hardware's anchor. It used to be described as the one` \
-        `# member that survives battery and brightness going away — but volume.sh` \
-        `# hides this item whenever the output device has no software volume, and` \
-        `# a class-compliant USB interface (the everyday case at this desk) is` \
-        `# exactly that. With battery also hidden on AC, island.hardware is left` \
-        `# carrying brightness alone. It cannot vanish — inset.hardware.l/.r never` \
-        `# hide — so if brightness went too it would render as an empty 12pt pill` \
-        `# rather than disappear. brightness reads a real value now (see its own` \
-        `# note below), so that is a corner rather than the everyday case; if it` \
-        `# ever shows up the fix is a regroup, not a fake number here.` \
-        `#` \
-        `# updates=on, NOT the config-wide when_shown default. This is the same` \
-        `# trap thermals guards against, and it is worse here because this item` \
-        `# hides itself as a matter of course rather than only on failure:` \
-        `# bar_item_update() computes` \
-        `#     should_update = updates_only_when_shown ? is_shown : true` \
-        `# and that gates EVENT-driven runs too, not just timed ones — while` \
-        `# bar_draw() drops the bar association of anything it does not draw, so` \
-        `# drawing=off makes is_shown false. Without this line, the moment` \
-        `# volume.sh hid the item it could never run again to un-hide itself, and` \
-        `# plugging in headphones would do nothing until a config reload.` \
-        `# update_freq stays unset: with updates=on and update_frequency == 0 a` \
-        `# timer tick still returns early (sender == NULL) while an event passes,` \
-        `# so this buys back recoverability WITHOUT introducing polling.` \
         updates=on \
         script="$PLUGIN_DIR/volume.sh" \
         click_script="osascript -e 'set volume output muted not (output muted of (get volume settings))'"
@@ -697,6 +248,10 @@ sketchybar \
     --set inset.hardware.l "${BLANK_STYLE[@]}" width=6
 
 # CONNECTIVITY ----------------------------------------------
+# `wifi` is the anchor — it never hides, which is what stops this island
+# collapsing when bluetooth and vpn have nothing to report. It is also the reason
+# wifi is the one item here without `updates=on`: when_shown is correct for an
+# item that is always shown.
 sketchybar \
     --add item spacer.network right \
     --set spacer.network "${BLANK_STYLE[@]}" width=12
@@ -709,7 +264,6 @@ sketchybar \
     --add item wifi right \
     --subscribe wifi wifi_change system_woke \
     --set wifi \
-        `# island.network's anchor — wifi never hides.` \
         script="$PLUGIN_DIR/wifi.sh" \
         click_script="open 'x-apple.systempreferences:com.apple.Network-Settings.extension'"
 
@@ -717,19 +271,15 @@ sketchybar \
     --add item bluetooth right \
     --subscribe bluetooth system_woke \
     --set bluetooth \
-        `# SELF-HIDING ITEM -> updates=on. See the volume item.` \
         updates=on \
         update_freq=120 \
         script="$PLUGIN_DIR/bluetooth.sh" \
         click_script="open 'x-apple.systempreferences:com.apple.BluetoothSettings'"
 
-# VPN. No native event exists, and waking is when the state most often changed
-# while you weren't looking — hence the poll plus system_woke.
 sketchybar \
     --add item vpn right \
     --subscribe vpn system_woke \
     --set vpn \
-        `# SELF-HIDING ITEM -> updates=on. See the volume item.` \
         updates=on \
         update_freq=10 \
         script="$PLUGIN_DIR/vpn.sh" \
@@ -740,6 +290,14 @@ sketchybar \
     --set inset.network.l "${BLANK_STYLE[@]}" width=6
 
 # STATUS ----------------------------------------------------
+# Ambient indicators, and the densest cluster of self-hiding items in the file —
+# weather, github and mic all come and go, so this island visibly changes width
+# during the day. `pomodoro` is the member that never hides and keeps it alive.
+#
+# EVERY ITEM HERE THAT CAN HIDE ITSELF SETS updates=on. Without it the item stops
+# being polled the moment it hides and can never read its way back — it works
+# after a reload, disappears once, and is gone until the next one. This is the
+# trap that has been rediscovered most often in this config.
 sketchybar \
     --add item spacer.status right \
     --set spacer.status "${BLANK_STYLE[@]}" width=12
@@ -748,85 +306,29 @@ sketchybar \
     --add item inset.status.r right \
     --set inset.status.r "${BLANK_STYLE[@]}" width=6
 
-# Current conditions. 900s because weather does not change faster than that and
-# every poll is an unauthenticated request to a third party that geolocates by
-# source IP — see the PRIVACY note at the top of weather.sh, which also documents
-# SKETCHYBAR_WEATHER_LOCATION for pinning a place or turning the item off.
 sketchybar \
     --add item weather right \
     --subscribe weather system_woke \
     --set weather \
-        `# SELF-HIDING ITEM -> updates=on. See the volume item. Worst case of` \
-        `# the set: weather.sh hides on a FAILED FETCH, so one flaky request` \
-        `# would otherwise retire this item permanently.` \
         updates=on \
         update_freq=900 \
         script="$PLUGIN_DIR/weather.sh"
 
-# Unread GitHub notifications. Stays hidden until `gh auth login` has been run;
-# 300s is 12 requests/hour against a 5000/hour authenticated limit.
 sketchybar \
     --add item github right \
     --set github \
-        `# SELF-HIDING ITEM -> updates=on. See the volume item.` \
         updates=on \
         update_freq=300 \
         script="$PLUGIN_DIR/github.sh" \
         click_script="open 'https://github.com/notifications'"
 
-# Microphone in use — the same signal as the menu bar's orange dot. The 2s poll
-# is affordable because the helper is a compiled binary; see mic.sh.
 sketchybar \
     --add item mic right \
     --set mic \
-        `# SELF-HIDING ITEM -> updates=on. See the volume item for the full` \
-        `# mechanism; the short version is that a hidden item under the` \
-        `# config-wide when_shown default stops being polled, so mic.sh could` \
-        `# never run again to notice that recording had started.` \
         updates=on \
-        `# 5, NOT 2. The helper costs 63ms per run (measured median of 10), so` \
-        `# every second of interval here is worth ~1900ms/min of CPU. At 2 this` \
-        `# item alone was 1890ms/min — 36% of the entire bar's budget and the` \
-        `# most expensive thing in the config. The old value came from a comment` \
-        `# in mic.swift claiming the helper ran in "single-digit ms", which was` \
-        `# wrong by 8x; that comment is now corrected. Two seconds of latency on` \
-        `# a recording indicator buys nothing. Lower this only after re-measuring.` \
         update_freq=5 \
         script="$PLUGIN_DIR/mic.sh"
 
-# A macOS Focus-mode indicator (Do Not Disturb / Work / …) WAS BUILT HERE AND
-# REMOVED. Recording it so it is not attempted a second time.
-#
-# The motivation was sound: the menu bar is auto-hidden, and the menu bar is the
-# only place macOS shows the active Focus, so the state is invisible. The plugin
-# worked — verified against synthetic fixtures for all five modes plus an unknown
-# one. What killed it is that the only source of truth,
-#     ~/Library/DoNotDisturb/DB/Assertions.json
-# is TCC-PROTECTED. Measured from a script sketchybar actually ran:
-#     PermissionError [Errno 1] Operation not permitted
-# with the file at mode -rw-r--r-- and owned by the user — so it is macOS
-# privacy, not Unix permissions. A shell in a terminal reads it fine because the
-# terminal has Full Disk Access; sketchybar, launched by aerospace, does not.
-# That difference is the whole trap: testing the read from a terminal proves
-# nothing about whether the bar can do it.
-#
-# No unprotected route exists. Checked, all from a script sketchybar ran:
-#     ~/Library/DoNotDisturb/DB/Assertions.json   BLOCKED
-#     defaults com.apple.donotdisturb             no domain
-#     notificationcenterui doNotDisturb           removed in Monterey
-#     com.apple.controlcenter                     readable, but its only Focus
-#                                                 keys are widget position and
-#                                                 visibility, not state
-#     ~/Library/Preferences/.GlobalPreferences    readable (control: the block
-#                                                 is specific, not blanket)
-#
-# The only fix is Full Disk Access on sketchybar, which was declined: it would
-# extend FDA to every plugin script the bar spawns, and would likely need
-# re-granting whenever `brew upgrade` replaces the binary.
-
-# Amphetamine keep-awake state. Click toggles an indefinite session; the item is
-# subscribed to mouse.clicked rather than using click_script so the toggle and
-# the redraw live in one script.
 sketchybar \
     --add item amphetamine right \
     --subscribe amphetamine mouse.clicked system_woke \
@@ -835,15 +337,10 @@ sketchybar \
         update_freq=30 \
         script="$PLUGIN_DIR/amphetamine.sh"
 
-# Pomodoro. Click cycles idle -> 25min work -> 5min break -> idle. The script
-# retunes its own update_freq — 1s while counting down, 0 (event-only) when idle,
-# so the 1Hz cost is paid only while a timer is actually running.
 sketchybar \
     --add item pomodoro right \
     --subscribe pomodoro mouse.clicked system_woke \
     --set pomodoro \
-        `# island.status's anchor — it never hides, so the pill survives every` \
-        `# other member of that island going away.` \
         script="$PLUGIN_DIR/pomodoro.sh"
 
 sketchybar \
@@ -851,92 +348,109 @@ sketchybar \
     --set inset.status.l "${BLANK_STYLE[@]}" width=6
 
 # SYSTEM ----------------------------------------------------
-# CPU load, memory, temperature and fan RPM. ADDED LAST, which is what puts it
-# LEFTMOST on this side — see THE ADD ORDER IS THE LAYOUT above.
+# ONE SAMPLE, THREE ITEMS. Only `thermals` has a script; `cpu` and `memory` are
+# passive — no script, no update_freq — and are written by system.sh during the
+# thermals tick. So update_freq=60 sets the refresh rate for all three, and a
+# macmon failure blanks all three at once. A null script on cpu/memory is by
+# design, not a broken path.
 #
-# It used to live on the left run and was moved here; with one screen there is
-# room either way, so this is placement rather than necessity.
+# 60 and not 30: one macmon sample costs ~740ms wall because it collects a whole
+# SoC telemetry frame to extract three numbers. It is only ~169 ms/min of CPU at
+# this frequency since most of that is spent blocked.
 #
-# Leftmost is the most STABLE position for it. Right-side items lay out from
-# the bar's right edge leftward, so an island's width change shifts everything to
-# its left and nothing to its right. This is the widest island here and the only
-# one that changes width on its own (the fan RPM digit count), so putting it at
-# the leading edge means an RPM change moves only its own left edge instead of
-# dragging status and network with it.
-#
-# ONE SAMPLE, THREE ITEMS: a macmon sample costs ~0.9s, so only `thermals` runs
-# system.sh; it writes cpu and memory too. cpu and memory are passive — no
-# script, no update_freq — and would never update on their own.
+# Members are added thermals -> memory -> cpu so they READ cpu -> memory ->
+# thermals. The background.padding below is screen-space and does not invert.
 sketchybar \
     --add item spacer.system right \
     --set spacer.system "${BLANK_STYLE[@]}" width=12
 
-# Added thermals -> memory -> cpu so they READ cpu -> memory -> thermals. The
-# background.padding values below are screen-space and do NOT swap with the add
-# order: cpu is still the leftmost member and still carries the left interior
-# padding.
 sketchybar \
     --add item thermals right \
     --subscribe thermals system_woke \
     --set thermals \
-        `# Rightmost member of island.system — carries its right interior padding.` \
         background.padding_right=6 \
-        `# updates=on, NOT the config-wide when_shown default: system.sh hides` \
-        `# all three items when macmon fails, and a hidden item under when_shown` \
-        `# stops being polled — the failure would be permanent and silent.` \
         updates=on \
-        `# 60, NOT 30. One invocation costs ~930ms — macmon alone is 854ms` \
-        `# (measured), because it samples a whole SoC telemetry frame to extract` \
-        `# three numbers. At 30 that was 1860ms/min, the second-largest cost in` \
-        `# the bar. CPU%, RAM and fan RPM at 60s resolution is not information` \
-        `# anyone acts on faster. The real fix is to stop shelling out to macmon` \
-        `# for values that host_statistics64 and host_processor_info give almost` \
-        `# free, but fan RPM has no obvious no-sudo source — the HID sensor page` \
-        `# exposes temperature (usage 5) and nothing fan-shaped.` \
         update_freq=60 \
         script="$PLUGIN_DIR/system.sh" \
         click_script="open -a 'Macs Fan Control'" \
     --add item memory right \
     --add item cpu right \
     --set cpu \
-        `# background.padding, NOT a pad item — island.system is one of the two` \
-        `# islands that must be able to collapse, and a pad would never hide.` \
-        `# Safe here because all three members hide together, so the ends can` \
-        `# never drift. See ISLAND PADDING at the top.` \
         background.padding_left=6
 
+# NOW PLAYING -----------------------------------------------
+# Reads macOS's system-wide Now Playing state via media-control, so it follows
+# whatever actually holds the session — IINA, Spotify, a browser tab — not just
+# Apple Music. plugins/music.sh carries the why, including the private-API
+# dependency this rests on and how it hides cleanly if Apple closes it.
+#
+# THIS BLOCK MUST STAY LAST on the right side. Added last means furthest left,
+# which is what puts island.media at the inner end of the run; and the popup
+# items below can only be added once `music` exists, so they travel with it.
+#
+# THE THREE WIDTHS ARE ONE SET — width 215, label.width 180, label.max_chars 20.
+# SketchyBar only scrolls text truncated by max_chars, and only when label.width
+# is >= the truncated text; give the box less and it silently CLIPS instead,
+# which looks like a correctly-sized pill that just sits still. Measured: 20
+# chars is 164pt of ink in the 180pt box. Raise max_chars and label.width
+# together or not at all. Neither value is echoed by `sketchybar --query`.
+sketchybar \
+    --add item spacer.media right \
+    --set spacer.media "${BLANK_STYLE[@]}" width=12
+
+sketchybar \
+    --add item music right \
+    --subscribe music mouse.clicked \
+    --set music \
+        updates=on \
+        background.padding_left=6 \
+        background.padding_right=6 \
+        width=215 \
+        label.width=180 \
+        label.max_chars=20 \
+        scroll_texts=on \
+        label.scroll_duration=100 \
+        popup.horizontal=on \
+        popup.background.color="$ISLAND" \
+        popup.background.border_width=1 \
+        popup.background.border_color="$ISLAND_BORDER" \
+        popup.background.corner_radius=10 \
+        update_freq=10 \
+        script="$PLUGIN_DIR/music.sh"
+
+# Transport goes through media-control, not `tell application "Music"`, for the
+# same reason music.sh does: the commands are addressed to whichever app owns the
+# system Now Playing session, so these work for IINA and Spotify and a browser
+# tab, none of which the old AppleScript could reach. Command names are exact —
+# `media-control help` lists them with their MediaRemote command IDs.
+sketchybar \
+    --add item music.prev popup.music \
+    --set music.prev icon="󰒮" label.drawing=off \
+        click_script="media-control previous-track >/dev/null 2>&1; sketchybar --set music popup.drawing=off" \
+    --add item music.play popup.music \
+    --set music.play icon="󰐊" label.drawing=off \
+        click_script="media-control toggle-play-pause >/dev/null 2>&1; sketchybar --set music popup.drawing=off" \
+    --add item music.next popup.music \
+    --set music.next icon="󰒭" label.drawing=off \
+        click_script="media-control next-track >/dev/null 2>&1; sketchybar --set music popup.drawing=off"
+
 # --- Islands -----------------------------------------------
-# Must come after every member item exists — a bracket can only reference items
-# that have already been added.
+# The frosted pills. These brackets are the ONLY backgrounds drawn on the whole
+# bar, and blur_radius frosts each one individually rather than the entire strip.
+# Must come after every member item exists — a bracket naming a missing item only
+# warns, it does not fail, so a stale line here is invisible.
 #
-# A bracket renders BELOW its members, so aerospace.sh's mauve focused-workspace
-# pill still draws on top of the workspace island rather than being hidden by it.
+# THREE OF THEM CAN VANISH: island.system, island.media, and island.mode. For the
+# first two, every member hides at once (system.sh when macmon fails, music.sh when
+# nothing is playing), and a bracket whose members are all hidden draws nothing at
+# all. That is why those two use background.padding on their end members instead of
+# inset pad items — a pad never hides, and would strand an empty pill exactly where
+# the island is supposed to disappear. island.mode is the deliberate case: its one
+# member sits drawing=off except during service mode, so the island is invisible by
+# default and appears only while AeroSpace has toggled the pill on.
 #
-# Members with drawing=off are skipped when the rect is computed, so the status
-# island shrinks correctly as music/thermals/battery/bluetooth/brightness come
-# and go, and would vanish entirely if all of them hid at once (clock never
-# does, so it always has an anchor).
-#
-# The inset.* members are the exception and the reason this works: they draw
-# nothing but are not hidden, so they are always counted and always contribute
-# their 6pt. That is what pins each island's interior at 12pt on both ends
-# regardless of which real members are showing — see ISLAND PADDING at the top.
-#
-# THE MEMBER LIST BELOW IS A SET, NOT AN ORDER. It is the pads' ADD order — hence
-# their screen position — that has to put them at the two ends; where they appear
-# in the bracket line is irrelevant. Read from src/group.c rather than assumed:
-# group_get_first_member/group_get_last_member scan the members for minimum and
-# maximum window origin.x, and group_get_length then adds first_item's
-# padding_left to last_item's padding_right. Nothing consults the list order.
-# (This is also why moving island.system to the right side needed its ADD order
-# reversed but left its bracket line untouched.) The lists are still written in
-# screen order, because that is how they read.
-#
-# corner_radius is half of height, which is what makes these pills rather than
-# rounded rectangles. 32 centred in the 38pt bar puts the bottom edge at y=35 —
-# see the gaps arithmetic at the top of this file. There is a hard ceiling here:
-# bar_item_calculate_bounds caps an item at `bar height - (bar border_width + 1)`
-# = 37, so an island taller than that is silently clipped rather than rejected.
+# island.app also uses background.padding but does NOT collapse: front_app always
+# draws. The remaining four are pinned open by their inset.* members.
 ISLAND_STYLE=(
     background.drawing=on
     background.height=32
@@ -944,23 +458,6 @@ ISLAND_STYLE=(
     background.color="$ISLAND"
     background.border_width=1
     background.border_color="$ISLAND_BORDER"
-    # FROSTED PILLS. Note this is `blur_radius`, an ITEM property — NOT
-    # `background.blur_radius`, which does not exist. It works here because a
-    # bracket is itself an item and its window is the island's rect, so the blur
-    # lands on exactly the pill and the transparent bar behind it stays sharp.
-    # This is the alternative to a bar-level blur, which would frost the whole
-    # rectangle including the gaps between islands — tried, rejected.
-    #
-    # THE THING TO WATCH: the blur is applied to the item's WINDOW, which is
-    # rectangular, while the pill drawn in it is rounded. Whether the corners
-    # show a square frosted patch depends on macOS masking the backdrop by the
-    # window's alpha. Look at the corners of an island against a high-contrast
-    # wallpaper before assuming this is clean; blur_radius=0 reverts it with
-    # nothing else to change.
-    #
-    # Private API: reaches SLSSetWindowBackgroundBlurRadius via
-    # window_set_blur_radius (src/window.c). Undocumented SkyLight, so a
-    # plausible casualty of a macOS update — the failure mode is cosmetic.
     blur_radius=30
 )
 
@@ -968,30 +465,18 @@ sketchybar \
     --add bracket island.spaces inset.spaces.l "${space_items[@]}" inset.spaces.r \
     --set island.spaces "${ISLAND_STYLE[@]}" \
     \
-    `# Sole member, so its interior comes from background.padding on front_app` \
-    `# rather than pad items — safe because this island cannot collapse. See the` \
-    `# front_app block above. If it is ever disabled again, comment THIS OUT TOO:` \
-    `# a bracket naming an item that does not exist only WARNS, it does not fail,` \
-    `# so a stale line here costs nothing visible and hides the mistake.` \
     --add bracket island.app front_app \
     --set island.app "${ISLAND_STYLE[@]}" \
     \
-    `# THE TWO COLLAPSING ISLANDS. No pads here, deliberately: every member of` \
-    `# each hides at once — system.sh when macmon fails, music.sh when nothing` \
-    `# is playing — and the bracket then goes to g_nirvana and draws nothing at` \
-    `# all. A pad never hides, so adding one would strand an empty 12pt pill` \
-    `# exactly where the island is supposed to disappear. Their interiors come` \
-    `# from background.padding on the end members instead, which is safe only` \
-    `# because their members hide as a unit and the ends cannot drift.` \
+    --add bracket island.mode aerospace_mode \
+    --set island.mode "${ISLAND_STYLE[@]}" \
+    \
     --add bracket island.system cpu memory thermals \
     --set island.system "${ISLAND_STYLE[@]}" \
     \
     --add bracket island.media music \
     --set island.media "${ISLAND_STYLE[@]}" \
     \
-    `# The right side, grouped by category. Each of these four has exactly one` \
-    `# real member that never hides — clock, volume, wifi, pomodoro — so none` \
-    `# can collapse and strand its spacer. See the note above the right side.` \
     --add bracket island.time inset.time.r clock calendar inset.time.l \
     --set island.time "${ISLAND_STYLE[@]}" \
     \
@@ -1005,4 +490,6 @@ sketchybar \
     --set island.status "${ISLAND_STYLE[@]}"
 
 # --- Go ----------------------------------------------------
+# Flush the batched config: one forced update pass so every item runs its script
+# and paints now, instead of waiting for its first event or tick.
 sketchybar --update

@@ -18,7 +18,5 @@ fi
 name="$(truncate_label "$name" "$MAX_LEN")"
 
 sketchybar --set "$NAME" drawing=on \
-    `# md-vpn, not md-shield_lock — a shield reads as firewall/password manager` \
-    `# /antivirus just as easily. MDI has a dedicated VPN glyph.` \
     icon="󰖂" icon.color="$GREEN" \
     label.drawing=on label.color="$TEXT" label="$name"

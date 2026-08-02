@@ -6,103 +6,14 @@
 #
 # AeroSpace reads either ~/.aerospace.toml or this XDG path. Having BOTH is an
 # error ("ambiguity is reported"), so ~/.aerospace.toml must not exist.
-#
-# WHY THIS DIFFERS FROM UPSTREAM'S default-config.toml:
-# AeroSpace binds keys system-wide — it sees them before kitty or zsh do. The
-# upstream default binds alt-<letter> for 26 letter-named workspaces, which would
-# swallow this setup's shell keys: ^[c (fzf-cd-widget), ^[b / ^[f (word motion),
-# ^[d (kill-word), ^[m, ^[n, ^[p, ^[g, ^[a. So: numeric workspaces only.
-# Before adding any alt-<letter> binding here, check it against `bindkey -M emacs`.
-#
-# TWO SEPARATE HAZARDS LIVE ON alt, AND THEY ARE NOT THE SAME PROBLEM:
-#
-#   alt-<letter>  collides with ZSH WIDGETS          (the paragraph above)
-#   alt-<digit>   collides with the KEYBOARD LAYOUT  (this paragraph)
-#
-# This machine is on the DANISH layout, where brackets and braces are on the
-# Option layer of the digit row. Binding alt-<digit> here makes them untypable
-# system-wide, with no alternative route on the layout:
-#   alt-8 [    alt-9 ]    alt-shift-7 \    alt-shift-8 {    alt-shift-9 }
-# That is why workspace switching is on CTRL-<digit>, not alt-<digit>. It is not
-# a style choice and it must not be "tidied" back to alt to match upstream.
-#
-# CTRL is the escape and CMD is not. Measured with UCKeyTranslate against the
-# live input source, key 8:
-#   alt-8 -> [        alt-shift-8 -> {
-#   cmd-alt-8 -> [    <- Command does NOT suppress the Option layer
-#   ctrl-8 -> 8       ctrl-shift-8 -> 8        <- Control does
-#   ctrl-alt-8 -> 8   ctrl-alt-shift-8 -> 8
-# Same applies to Norwegian, Swedish, Finnish and German layouts. If this config
-# is ever used on US ANSI the constraint disappears, but the bindings can stay.
-#
-# ctrl-<digit> and ctrl-shift-<digit> were checked and are owned by nothing here:
-# not kitty.conf, not this file, not `bindkey -M emacs`.
-#
-# PUT CONTROL ON CAPS LOCK. Reaching the bottom-left Ctrl for a key pressed this
-# often is the same stretch that ruled out alt-ctrl; Caps Lock is the best-placed
-# key on the board and macOS remaps it natively, no software required:
-#   System Settings > Keyboard > Keyboard Shortcuts… > Modifier Keys
-#
-# THAT PANEL IS PER-KEYBOARD, which is the trap. macOS stores the mapping as
-# `com.apple.keyboard.modifiermapping.<vendor>-<product>-0`, so setting it on one
-# device does nothing for another and the panel has a keyboard selector that is
-# easy to miss. Two are attached here (from IOHIDManager):
-#   Keychron Link   vendor 13364  product 53296
-#   USB Receiver    vendor 1133   product 50504   (Logitech)
-# "I set it and it didn't work" almost always means it was set on the other one.
-#
-# IF THE NATIVE REMAP FEELS LAGGY, that is its known Caps Lock debounce, and it
-# is the only good reason to escalate. Two escalations, in order of preference:
-#   1. THE KEYBOARD'S OWN FIRMWARE. Many Keychron boards are QMK/VIA
-#      programmable and QMK has a native Hyper (LCTL+LSFT+LALT+LGUI). No Mac-side
-#      software, no driver, no permission grant, and it travels with the keyboard.
-#      Check the model against Keychron's VIA/Launcher support first.
-#   2. Karabiner-Elements. Buys hyper (so ctrl+digit returns to apps) and no
-#      activation delay, at the cost of a DriverKit virtual HID driver, an Input
-#      Monitoring grant, and a karabiner.json that the app rewrites — awkward to
-#      stow for the same reason ~/.claude and ~/.ssh are (see CLAUDE.md). If it
-#      comes to that, stow a rule file under assets/complex_modifications/, which
-#      the app treats as read-only input, not karabiner.json itself.
-#
-# ONE THING TO WATCH: macOS Mission Control has "Switch to Desktop N" on ctrl-1..9
-# by default whenever more than one Space exists. System hotkeys are processed
-# early and can beat AeroSpace, so keep to a single macOS Space or uncheck those
-# in System Settings > Keyboard > Keyboard Shortcuts > Mission Control.
-#
-# Conscious losses to the shell, all low-value:
-#   ^[h  run-help          -> alt-h is 'focus left'
-#   ^[l  OMZ ls widget     -> alt-l is 'focus right'
-#   ^[F  forward-word      -> alt-shift-f is 'fullscreen' (^[f is the same widget)
-# ^[1..^[9 (digit-argument) and ^[^H / ^[^L (backward-kill-word, clear-screen)
-# used to be on that list and are RECOVERED — nothing binds alt-<digit> any more,
-# and the alt-ctrl-shift-h/l monitor bindings went with the second monitor.
-#
-# INSIDE KITTY THE TWO OPTION KEYS DIFFER, and that is deliberate — kitty.conf
-# sets `macos_option_as_alt left`. So:
-#   LEFT  option + 8  -> ^[8, i.e. digit-argument (kitty sends it as Alt)
-#   RIGHT option + 8  -> [    (kitty lets the layout compose it)
-# Use the RIGHT Option key for brackets and braces in the terminal. Everywhere
-# else there is only one Option layer and either key composes them.
-#
-# SINGLE SCREEN. This config is tuned for one 2560x1440 external and nothing
-# else: no per-monitor gaps, no workspace-to-monitor assignment, no
-# focus-monitor or move-node-to-monitor bindings, and no notch arithmetic. If a
-# second display or the laptop's own screen ever comes back, all of that has to
-# be reintroduced — the measurements are in git history, not here.
-#
-# ON ANIMATIONS: there are none, and none are possible. AeroSpace repositions a
-# window with a single Accessibility API write — there is no tween and no config
-# option for one. (Upstream only discusses animation to explain why it replaced
-# native macOS Spaces, whose switching animation can't be disabled.) The focus
-# cue below is the substitute: JankyBorders draws a ring on the focused window,
-# and that ring pulses on every focus change.
-
 config-version = 2
 
 
 # ============================================================
 # Startup
 # ============================================================
+# What AeroSpace runs at launch and how it reloads this file.
+#
 # The escape hatch is `aerospace enable toggle`, which suspends window management
 # without quitting — so there's no reason to keep launching it by hand.
 start-at-login = true
@@ -117,8 +28,6 @@ auto-reload-config = true
 # ring's lifetime is tied to the window manager's: quit AeroSpace, no orphan.
 after-startup-command = [
     'exec-and-forget borders',
-    # The status bar. Both run with no arguments so they read their own stowed
-    # config (~/.config/borders/bordersrc, ~/.config/sketchybar/sketchybarrc).
     'exec-and-forget sketchybar',
 ]
 on-mode-changed = []
@@ -127,11 +36,18 @@ on-mode-changed = []
 # ============================================================
 # Layout
 # ============================================================
+# How windows are arranged by default and the gaps left around them.
+
+# New windows tile rather than float or stack.
 default-root-container-layout = 'tiles'
+
 # 'auto' = horizontal on wide monitors, vertical on tall ones
 default-root-container-orientation = 'auto'
 accordion-padding = 30
 
+# Keep the tree tidy as windows come and go: flatten drops containers left
+# holding a single child, and opposite-orientation makes a nested container split
+# the other way from its parent so new windows land predictably.
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 
@@ -140,15 +56,9 @@ gaps.inner.horizontal = 8
 gaps.inner.vertical   = 8
 gaps.outer.left       = 8
 gaps.outer.bottom     = 8
-# 43 CLEARS SKETCHYBAR, and the two must move together. The islands are 32pt
-# tall centred in a 38pt bar, so their bottom edge is at y=35; 43 = 35 + the
-# usual 8pt gap. The bar draws inside the area AeroSpace tiles into, so without
-# this windows slide underneath it. Retune the bar height or the island height
-# and this number is wrong.
-#
-# Also paired with the macOS menu bar being auto-hidden (see the install script):
-# with the menu bar visible this would sit on top of its 30, and the bar would
-# land below it rather than at the top of the screen.
+# 43 = SketchyBar's height (38, set in sketchybarrc) + 5pt clearance. These two
+# numbers are coupled: raise the bar and windows tuck underneath it, lower the
+# bar and a band of wallpaper opens above them.
 gaps.outer.top        = 43
 gaps.outer.right      = 8
 
@@ -156,6 +66,9 @@ gaps.outer.right      = 8
 # ============================================================
 # Behaviour
 # ============================================================
+# Focus feedback, the bridge that keeps SketchyBar in sync, and a few
+# interaction defaults.
+#
 # Focus cue. AeroSpace can't animate a window move (see the note at the top), so
 # the JankyBorders ring flashes lavender for ~120ms and settles back to mauve.
 # Re-invoking `borders` reconfigures the running instance rather than starting a
@@ -164,10 +77,6 @@ gaps.outer.right      = 8
 # kitty uses for active_tab_background). They must stay in sync with bordersrc.
 # If a held-down alt-h/alt-l ever makes the pulse look like flicker, drop this
 # callback — the static ring survives on its own.
-#
-# Deliberately NOT 'move-mouse window-lazy-center': the pointer stays put on
-# focus changes. (There was an on-focused-monitor-changed callback here too; it
-# can never fire with one screen.)
 on-focus-changed = [
     'exec-and-forget /bin/sh -c "borders active_color=0xffbabbf1; sleep 0.12; borders active_color=0xffca9ee6"',
 ]
@@ -180,6 +89,8 @@ exec-on-workspace-change = [
     '/bin/bash', '-c',
     'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
 ]
+# Focus only on keypress (not on hover), leave macOS-hidden apps hidden, and
+# read the keyboard as QWERTY regardless of the active layout.
 focus-follows-mouse.enabled = false
 automatically-unhide-macos-hidden-apps = false
 key-mapping.preset = 'qwerty'
@@ -202,83 +113,38 @@ persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 # Bundle IDs were read off each app's Info.plist, not guessed. To add one:
 # `aerospace list-apps` while it's running.
 #
-# Deliberately NOT here: browsers, kitty, VS Code. This fires for *every* new
-# window, so a placement rule on those would yank a window you just opened onto
-# another monitor mid-task.
 on-window-detected = [
     # Float — utilities and preference panes; a tile only distorts the layout.
     { if = 'test %{app-bundle-id} = com.apple.systempreferences',          run = 'layout floating' },
     { if = 'test %{app-bundle-id} = com.apple.calculator',                 run = 'layout floating' },
-    { if = 'test %{app-bundle-id} = com.fasttracksoftware.adminbyrequest', run = 'layout floating' },
     { if = 'test %{app-bundle-id} = app.monitorcontrol.MonitorControl',    run = 'layout floating' },
     { if = 'test %{app-bundle-id} = com.logi.optionsplus',                 run = 'layout floating' },
     { if = 'test %{app-bundle-id} = com.crystalidea.macsfancontrol',       run = 'layout floating' },
     { if = 'test %{app-bundle-id} = com.focusrite.control',                run = 'layout floating' },
     { if = 'test %{app-bundle-id} = com.titanium.OnyX',                    run = 'layout floating' },
     { if = 'test %{app-bundle-id} = com.jetbrains.toolbox',                run = 'layout floating' },
-    # Raycast — the launcher panel itself is a non-activating window AeroSpace
-    # already ignores, but its Settings window tiles. This was commented out for
-    # a long time on the belief that Raycast "is in the Brewfile but not
-    # installed here"; that had become false — /Applications/Raycast.app exists
-    # and its Info.plist gives the id below. Enabled.
-    # Caveat, same as the two rules further down: the id came from Info.plist,
-    # not from `aerospace list-apps` with the Settings window open, because
-    # Raycast was not running. If the rule never fires, that is the first thing
-    # to re-check — a wrong id does not error, it just never matches.
     { if = 'test %{app-bundle-id} = com.raycast.macos',                    run = 'layout floating' },
-
-    # Float — games and compatibility layers. Different reason from the block
-    # above: these aren't utilities, they just tile badly. Game windows expect to
-    # own their geometry, and a tiling WM resizing them mid-session ranges from
-    # letterboxing to a wedged renderer.
     { if = 'test %{app-bundle-id} = com.codeweavers.CrossOver',            run = 'layout floating' },
     { if = 'test %{app-bundle-id} = com.valvesoftware.steam',              run = 'layout floating' },
-    #
-    # THESE TWO COVER THE LAUNCHERS, NOT THE GAMES. CrossOver is at
-    # ~/Applications/CrossOver.app (not /Applications), and every bottle gets its
-    # own generated launcher with a HASHED bundle id, e.g. measured here:
-    #   ~/Applications/CrossOver/Steam/Steam.app
-    #     com.codeweavers.CrossOverHelper.4DB4563826BAD0EB2F60EE6E42D0EA4B.D7B4…
-    #   ~/Applications/CrossOver/Battle.net/Battle.net.app
-    #     com.codeweavers.CrossOverHelper.747D99F92EE9C080BA26108AC5D26488.4C9D…
-    # So a window from a bottle does NOT match the CrossOver rule above, and
-    # pasting the hashes in would break the next time a bottle is created. If
-    # bottle windows need floating, run `aerospace list-apps` WITH THE GAME OPEN
-    # and add what it actually reports — per the "read it, don't guess" rule
-    # above. Both ids here came from each app's Info.plist; neither app was
-    # running to confirm against list-apps.
-
-    # Place — chat/mail/notes open on their home screens (see the map below).
     { if = 'test %{app-bundle-id} = com.microsoft.teams2',  run = 'move-node-to-workspace 6' },
     { if = 'test %{app-bundle-id} = com.microsoft.Outlook', run = 'move-node-to-workspace 7' },
     { if = 'test %{app-bundle-id} = md.obsidian',           run = 'move-node-to-workspace 8' },
 ]
 
-# There is no [workspace-to-monitor-force-assignment] section, deliberately —
-# with one screen every workspace lands there anyway. The app-placement rules
-# above still hold: Teams/Outlook/Obsidian open on workspaces 6/7/8 so they are
-# out of the way, which is now about workspace hygiene rather than which screen
-# they appear on.
-
 
 # ============================================================
 # Main bindings
 # ============================================================
+# Everyday window management, all on the `alt` modifier. Note that every
+# alt-<letter> here also shadows a zsh line-editor widget (^[b/^[f word motion,
+# ^[d kill-word, …), so check `bindkey -M emacs` before adding a new one — see
+# CLAUDE.md.
 [mode.main.binding]
 
-    # Launch a terminal, i3/sway style. Deliberately alt-SHIFT-enter and not the
-    # idiomatic alt-enter: AeroSpace binds system-wide, ahead of kitty and zsh,
-    # so alt-enter would permanently swallow ^[^M — which is self-insert-unmeta
-    # in zsh's emacs keymap and "insert newline without submitting" in Claude
-    # Code. Neither can be won back per-app once AeroSpace has the key.
-    # `open -na` for a new instance each time; kitty has no single-instance or
-    # remote-control setup here for a new window to attach to.
+    # Launch a terminal, then focus by direction. Focus wraps at the screen edge
+    # (cheap to undo), unlike the moves further down which deliberately stop.
     alt-shift-enter = 'exec-and-forget open -na kitty'
 
-    # Focus. --wrap-around because on one screen the alternative is a dead key:
-    # with two windows side by side, alt-l from the right-hand one used to do
-    # nothing at all, which reads as broken rather than as "no window there".
-    # Wrapping makes every press move focus somewhere.
     alt-h = 'focus --wrap-around left'
     alt-j = 'focus --wrap-around down'
     alt-k = 'focus --wrap-around up'
@@ -299,12 +165,13 @@ on-window-detected = [
     # Layout
     alt-slash = 'layout tiles horizontal vertical'
     alt-comma = 'layout accordion horizontal vertical'
-    # ^[F is bound to forward-word, but so is ^[f — this costs a duplicate.
-    alt-shift-f = 'fullscreen'
 
-    # Workspaces. CTRL, NOT ALT — alt-<digit> is where the Danish layout keeps
-    # [ ] { } \ and binding it here makes them untypable system-wide. See the
-    # two-hazards note at the top of this file before changing this.
+    # ctrl, NOT upstream's alt — do not "fix" this back. On the Danish layout
+    # `[ ] { } \` live on the Option layer of the digit row (alt-8, alt-9,
+    # alt-shift-7/8/9) with no other route to them, so binding alt-<digit> makes
+    # those characters untypable system-wide, in every app. Measured with
+    # UCKeyTranslate: ctrl-8 gives 8, but cmd-alt-8 still gives [ — cmd is not an
+    # escape hatch. Same trap on Norwegian, Swedish, Finnish and German.
     ctrl-1 = 'workspace 1'
     ctrl-2 = 'workspace 2'
     ctrl-3 = 'workspace 3'
@@ -336,22 +203,31 @@ on-window-detected = [
     # (backward-kill-word) and ^[^L (clear-screen) back to the shell, and leaves
     # three easy chords free if something else wants them.
 
-    alt-shift-semicolon = 'mode service'
+    alt-shift-semicolon = ['mode service', 'exec-and-forget sketchybar --set aerospace_mode drawing=on']
 
 
 # ============================================================
 # Service mode
 # ============================================================
 # Entered with alt-shift-semicolon; every binding returns to main mode.
+#
+# THE SERVICE PILL. Entering the mode shows a "SERVICE" pill (island.mode in
+# sketchybarrc); the trailing `… drawing=off` on every binding hides it again on the
+# way back to main. This is manual on purpose: on-mode-changed carries no mode name
+# (AeroSpace issue #390 — `aerospace list-exec-env-vars` shows no AEROSPACE_MODE), so
+# no single callback can tell the bar "service" from "main". CONSEQUENCE: a NEW binding
+# added here MUST carry the same hide, or the pill sticks on SERVICE after that key.
+# Harmless while sketchybar isn't running — the --set just fails into the void.
 [mode.service.binding]
-    esc = ['reload-config', 'mode main']
-    r = ['flatten-workspace-tree', 'mode main']          # reset layout
-    f = ['layout floating tiling', 'mode main']          # toggle float/tile
-    b = ['balance-sizes', 'mode main']                   # equalise all windows
-    s = ['swap --swap-focus dfs-next', 'mode main']      # swap with next window
-    backspace = ['close-all-windows-but-current', 'mode main']
+    esc       = ['reload-config',                 'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']  # exit + reload
+    r         = ['flatten-workspace-tree',        'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']  # reset layout
+    f         = ['layout floating tiling',        'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']  # toggle float/tile
+    m         = ['fullscreen',                    'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']  # toggle fullscreen
+    b         = ['balance-sizes',                 'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']  # equalise windows
+    s         = ['swap --swap-focus dfs-next',    'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']  # swap with next
+    backspace = ['close-all-windows-but-current', 'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']  # close others
 
-    alt-shift-h = ['join-with left', 'mode main']
-    alt-shift-j = ['join-with down', 'mode main']
-    alt-shift-k = ['join-with up', 'mode main']
-    alt-shift-l = ['join-with right', 'mode main']
+    alt-shift-h = ['join-with left',  'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']
+    alt-shift-j = ['join-with down',  'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']
+    alt-shift-k = ['join-with up',    'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']
+    alt-shift-l = ['join-with right', 'mode main', 'exec-and-forget sketchybar --set aerospace_mode drawing=off']

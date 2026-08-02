@@ -15,9 +15,6 @@ if ! pgrep -x Amphetamine >/dev/null 2>&1; then
     exit 0
 fi
 
-# One definition, two call sites. This block was previously written out twice,
-# verbatim — once here and once after the click below — and the two copies are
-# exactly the kind of thing that drifts the first time either is touched.
 read_session() {
     local state
     state="$(osascript \
@@ -38,8 +35,6 @@ if [ "$SENDER" = "mouse.clicked" ]; then
     else
         osascript -e 'tell application "Amphetamine" to start new session with options {duration:0, interval:0, displaySleepAllowed:false}' >/dev/null 2>&1
     fi
-    # Amphetamine updates its state asynchronously; without this the re-read
-    # below races the toggle and paints the previous state.
     sleep 0.4
     read_session
 fi
