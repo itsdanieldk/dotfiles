@@ -27,12 +27,24 @@ export TRANSPARENT=0x00000000
 # sketchybarrc) — these pills are the only thing drawn, so their alpha byte is
 # the single knob for how see-through the whole bar looks.
 #   0xe6 90%   0xcc 80%   0xb3 70% (current)   0x99 60%   0x80 50%
-# Below about 60% the Catppuccin text starts losing contrast on a busy wallpaper.
-# There is no blur to fall back on: blur_radius is a BAR-level property and there
-# is no background.blur_radius, so enabling it would frost the entire bar
-# rectangle including the gaps between islands — a blurred band across the whole
-# screen top, which is exactly the effect the islands exist to avoid.
+# Below about 60% the Catppuccin text starts losing contrast on a busy wallpaper —
+# though the pills are frosted now (see ISLAND_STYLE in sketchybarrc), and blur
+# buys back some of that headroom by killing the detail behind the text.
+#
+# BLUR IS PER-ITEM, NOT BAR-ONLY. An older version of this note said blur was a
+# bar property with "no background.blur_radius", and concluded that using it
+# would frost the whole bar rectangle including the gaps — a band across the
+# screen top, which is exactly what the islands exist to avoid. Half right:
+#   - true:  there is no background.blur_radius, so blur is not something a pill
+#            inherits from its background the way it inherits colour.
+#   - false: it is not bar-only. blur_radius is also an ITEM property
+#            (PROPERTY_BLUR_RADIUS, src/bar_item.c), applied to that item's own
+#            window — and a bracket IS an item whose window is the island rect.
+# So the pills can be frosted individually while the bar stays transparent, which
+# is what this config does. A full-width frosted band was tried and rejected.
 export ISLAND=0xb3232634
 # Kept fully opaque on purpose: as the fill gets more transparent the border is
 # what keeps the pill's edge crisp and its shape readable against the desktop.
+# It matters more with blur, not less — a frosted fill has softer edges than a
+# flat one, so the border is what stops the pill dissolving into the wallpaper.
 export ISLAND_BORDER=0xff414559
