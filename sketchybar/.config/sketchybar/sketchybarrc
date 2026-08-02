@@ -379,6 +379,15 @@ sketchybar \
     --add item music left \
     --subscribe music mouse.clicked \
     --set music \
+        `# SELF-HIDING ITEM -> updates=on. music.sh calls hide() whenever Apple` \
+        `# Music is not running, which is the NORMAL state, so this item spends` \
+        `# most of its life hidden. Without this it stops being polled the first` \
+        `# time it hides and the pill never comes back when you start playing.` \
+        `# This was the ninth item with that bug and the only one a hand audit` \
+        `# missed: its hide() was a local function, so a grep for a literal` \
+        `# drawing=off on NAME never saw it. scripts/lint-sketchybar.sh found it,` \
+        `# which is the argument for having the linter at all.` \
+        updates=on \
         `# Alone in its island, so it carries both ends' padding. Like` \
         `# island.system this stays on background.padding rather than pad items,` \
         `# because island.media exists precisely to vanish and a pad would keep` \
