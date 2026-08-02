@@ -2,8 +2,11 @@
 # Unread GitHub notification count. Hidden at zero, which is most of the time.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
-CACHE="${TMPDIR:-/tmp}/sketchybar-github"
+require gh
+
+CACHE="$(state_file github)"
 
 count="$(gh api notifications --jq 'length' 2>/dev/null)"
 

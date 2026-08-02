@@ -2,6 +2,7 @@
 # VPN connection state. Hidden unless something is actually connected.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
 MAX_LEN=14
 
@@ -14,9 +15,7 @@ if [ -z "$name" ]; then
     exit 0
 fi
 
-if [ "${#name}" -gt "$MAX_LEN" ]; then
-    name="$(printf '%s' "$name" | cut -c1-"$MAX_LEN")…"
-fi
+name="$(truncate_label "$name" "$MAX_LEN")"
 
 sketchybar --set "$NAME" drawing=on \
     `# md-vpn, not md-shield_lock — a shield reads as firewall/password manager` \

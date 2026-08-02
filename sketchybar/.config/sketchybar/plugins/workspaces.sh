@@ -17,6 +17,9 @@
 # `grep` per item.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
+
+require aerospace
 
 # FOCUSED_WORKSPACE is set by aerospace's exec-on-workspace-change; fall back to
 # a query for the startup pass and for front_app_switched, which does not carry it.

@@ -2,8 +2,9 @@
 # Pomodoro timer. Click cycles: idle → 25min work → 5min break → idle.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
-STATE="${TMPDIR:-/tmp}/sketchybar-pomodoro"
+STATE="$(state_file pomodoro)"
 
 WORK_MIN=25
 BREAK_MIN=5

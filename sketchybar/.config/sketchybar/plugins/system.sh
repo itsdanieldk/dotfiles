@@ -9,12 +9,11 @@
 # set of sensors, so the bar was faithfully displaying a bogus number.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
-HELPER_DIR="$HOME/.config/sketchybar/helpers"
-SRC="$HELPER_DIR/thermal.swift"
-BIN="$HELPER_DIR/thermal"
+require macmon
 
-# ONE SAMPLE, THREE ITEMS: a macmon sample costs ~0.7s, so only `thermals` runs
+# ONE SAMPLE, THREE ITEMS: a macmon sample costs ~0.9s, so only `thermals` runs
 # this script; it writes cpu and memory too. cpu and memory are passive — no
 # script, no update_freq — and would never update on their own.
 #
@@ -55,21 +54,17 @@ if [ "$ok" != "1" ]; then
     exit 0
 fi
 
-# Build the temperature helper on demand, exactly as mic.sh does, so a git pull
-# that changes the source does not need a re-run of ./install.
-if [ ! -x "$BIN" ] || [ "$SRC" -nt "$BIN" ]; then
-    if [ -r "$SRC" ] && command -v swiftc >/dev/null 2>&1; then
-        swiftc -O -o "$BIN.new" "$SRC" >/dev/null 2>&1 && mv "$BIN.new" "$BIN" || rm -f "$BIN.new"
-    fi
+# A missing temperature must NOT hide the island — note this deliberately does
+# NOT use lib.sh's require()/hide(). cpu and memory came from macmon and are
+# still good; only the reading we could not take goes away. Same rule as
+# volume.sh and brightness.sh: never state a value we do not know.
+temp=""
+if bin="$(ensure_helper thermal)"; then
+    temp="$("$bin" 2>/dev/null)"
+    case "$temp" in
+        ''|*[!0-9.]*) temp="" ;;
+    esac
 fi
-
-# A missing temperature must NOT hide the island. cpu and memory came from macmon
-# and are still good; only the reading we could not take goes away. Same rule as
-# volume.sh and brightness.sh — never state a value we do not know.
-temp="$("$BIN" 2>/dev/null)"
-case "$temp" in
-    ''|*[!0-9.]*) temp="" ;;
-esac
 
 # The helper prints one decimal — precise enough to watch the die move while
 # debugging, but the bar shows a whole number. A tenth of a degree is not

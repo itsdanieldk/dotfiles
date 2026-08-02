@@ -15,9 +15,12 @@
 #   (unset)                                   current behaviour, IP geolocation
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
+
+require curl
 
 LOCATION="${SKETCHYBAR_WEATHER_LOCATION:-}"
-CACHE="${TMPDIR:-/tmp}/sketchybar-weather"
+CACHE="$(state_file weather)"
 
 if [ "$LOCATION" = "off" ]; then
     sketchybar --set "$NAME" drawing=off

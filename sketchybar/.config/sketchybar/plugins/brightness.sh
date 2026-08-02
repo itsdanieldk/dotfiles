@@ -37,6 +37,7 @@
 # it is no worse than the behaviour this replaced.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
 if [ "$SENDER" = "brightness_change" ] && [ -n "$INFO" ]; then
     pct="$INFO"

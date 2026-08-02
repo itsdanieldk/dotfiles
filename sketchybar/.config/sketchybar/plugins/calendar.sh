@@ -2,20 +2,17 @@
 # Next calendar event today. Hidden when there is nothing left in the day.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
+
+require icalBuddy
 
 MAX_LEN=42
 
-hide() {
-    sketchybar --set "$NAME" drawing=off popup.drawing=off
-    exit 0
-}
 
 case "$SENDER" in
     mouse.entered) sketchybar --set "$NAME" popup.drawing=on;  exit 0 ;;
     mouse.exited)  sketchybar --set "$NAME" popup.drawing=off; exit 0 ;;
 esac
-
-command -v icalBuddy >/dev/null 2>&1 || hide
 
 raw="$(icalBuddy -n -nc -nrd -ea -b "" -df "" -tf "%H:%M" -li 1 \
         -iep "datetime,title" -ps "|@|" eventsToday 2>/dev/null)"
@@ -32,9 +29,7 @@ title="$(printf '%s' "$raw" \
 
 [ -n "$title" ] || title="(untitled)"
 
-if [ "${#title}" -gt "$MAX_LEN" ]; then
-    title="$(printf '%s' "$title" | cut -c1-"$MAX_LEN")…"
-fi
+title="$(truncate_label "$title" "$MAX_LEN")"
 
 sketchybar --set "$NAME" drawing=on \
     icon="󰃭" icon.color="$PEACH" \

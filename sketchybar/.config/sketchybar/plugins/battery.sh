@@ -3,10 +3,36 @@
 # power_source_change.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
 batt="$(pmset -g batt)"
-pct="$(printf '%s' "$batt" | grep -Eo '[0-9]+%' | head -1 | tr -d '%')"
-charging="$(printf '%s' "$batt" | grep -c "AC Power")"
+
+# Parameter expansion, not `grep | head | tr`. pmset prints e.g.
+#   Now drawing from 'AC Power'
+#    -InternalBattery-0 (id=…)	100%; charged; 0:00 remaining present: true
+#
+# THE NO-BATTERY CASE IS NOT HYPOTHETICAL — it is this machine. A Mac Studio
+# prints only the "Now drawing from 'AC Power'" line, with no battery line and no
+# percent sign anywhere. So test for '%' FIRST: an earlier version of this parse
+# assumed the battery line existed, and on a desktop it happily produced the
+# string "Power'" as a percentage.
+case "$batt" in
+    *%*)
+        pct="${batt%%\%*}"        # drop from the '%' onward
+        pct="${pct##*[!0-9]}"     # keep the trailing digit run
+        ;;
+    *)  pct="" ;;                 # no battery — the guard below hides the item
+esac
+
+# CHARGING IS NOT THE SAME AS ON AC, and this used to conflate them. The old test
+# was `grep -c "AC Power"`, which is true whenever the cable is in — so a battery
+# sitting at 100% on mains was painted green as though it were still charging.
+# pmset states its own answer: the status field reads "charging", "charged",
+# "discharging" or "AC attached". Only the first is actually charging.
+case "$batt" in
+    *"; charging"*) charging=1 ;;
+    *)              charging=0 ;;
+esac
 
 if [ -z "$pct" ]; then
     sketchybar --set "$NAME" drawing=off

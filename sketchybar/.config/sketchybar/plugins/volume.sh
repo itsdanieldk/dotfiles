@@ -10,6 +10,7 @@
 # script's job is then to show nothing rather than to invent a number.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
 # ONE osascript call for both readings. This used to be two — one for the level
 # and one for the mute state — which is how the bug below survived: the two code

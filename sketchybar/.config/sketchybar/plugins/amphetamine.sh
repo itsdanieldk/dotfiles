@@ -3,6 +3,7 @@
 # long. Click toggles an indefinite session on/off.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
 draw_off() {
     sketchybar --set "$NAME" icon.color="$OVERLAY0" label="" label.drawing=off \
@@ -14,23 +15,11 @@ if ! pgrep -x Amphetamine >/dev/null 2>&1; then
     exit 0
 fi
 
-state="$(osascript \
-    -e 'tell application "Amphetamine"' \
-    -e 'set a to session is active' \
-    -e 'set t to session time remaining' \
-    -e 'end tell' \
-    -e 'return (a as text) & "," & (t as text)' 2>/dev/null)"
-
-active="${state%%,*}"
-remaining="${state##*,}"
-
-if [ "$SENDER" = "mouse.clicked" ]; then
-    if [ "$active" = "true" ]; then
-        osascript -e 'tell application "Amphetamine" to end session' >/dev/null 2>&1
-    else
-        osascript -e 'tell application "Amphetamine" to start new session with options {duration:0, interval:0, displaySleepAllowed:false}' >/dev/null 2>&1
-    fi
-    sleep 0.4
+# One definition, two call sites. This block was previously written out twice,
+# verbatim — once here and once after the click below — and the two copies are
+# exactly the kind of thing that drifts the first time either is touched.
+read_session() {
+    local state
     state="$(osascript \
         -e 'tell application "Amphetamine"' \
         -e 'set a to session is active' \
@@ -39,6 +28,20 @@ if [ "$SENDER" = "mouse.clicked" ]; then
         -e 'return (a as text) & "," & (t as text)' 2>/dev/null)"
     active="${state%%,*}"
     remaining="${state##*,}"
+}
+
+read_session
+
+if [ "$SENDER" = "mouse.clicked" ]; then
+    if [ "$active" = "true" ]; then
+        osascript -e 'tell application "Amphetamine" to end session' >/dev/null 2>&1
+    else
+        osascript -e 'tell application "Amphetamine" to start new session with options {duration:0, interval:0, displaySleepAllowed:false}' >/dev/null 2>&1
+    fi
+    # Amphetamine updates its state asynchronously; without this the re-read
+    # below races the toggle and paints the previous state.
+    sleep 0.4
+    read_session
 fi
 
 if [ "$active" != "true" ]; then

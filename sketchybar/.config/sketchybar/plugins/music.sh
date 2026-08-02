@@ -2,11 +2,8 @@
 # Apple Music now-playing. Click toggles play/pause.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
-hide() {
-    sketchybar --set "$NAME" drawing=off popup.drawing=off
-    exit 0
-}
 
 pgrep -x Music >/dev/null 2>&1 || hide
 
