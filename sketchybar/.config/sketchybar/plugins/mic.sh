@@ -3,26 +3,11 @@
 # bar. Hidden unless something is actually recording.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
-HELPER_DIR="$HOME/.config/sketchybar/helpers"
-SRC="$HELPER_DIR/mic.swift"
-BIN="$HELPER_DIR/mic"
+bin="$(ensure_helper mic)" || hide
 
-hide() {
-    sketchybar --set "$NAME" drawing=off
-    exit 0
-}
-
-if [ ! -x "$BIN" ] || [ "$SRC" -nt "$BIN" ]; then
-    [ -r "$SRC" ] || hide
-    command -v swiftc >/dev/null 2>&1 || hide
-    swiftc -O -o "$BIN.new" "$SRC" >/dev/null 2>&1 && mv "$BIN.new" "$BIN" || {
-        rm -f "$BIN.new"
-        hide
-    }
-fi
-
-[ "$("$BIN" 2>/dev/null)" = "on" ] || hide
+[ "$("$bin" 2>/dev/null)" = "on" ] || hide
 
 sketchybar --set "$NAME" drawing=on \
     icon="󰍬" icon.color="$RED" \

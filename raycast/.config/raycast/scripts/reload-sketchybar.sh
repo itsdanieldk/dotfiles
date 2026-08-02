@@ -20,7 +20,7 @@
 #         the same repair sketchybarrc makes at the top of itself.
 #   USER  the client resolves the running bar's mach port through it and aborts
 #         with "sketchybar-msg: 'env USER' not set! abort.." if it is missing.
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:$PATH"
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:$PATH"
 export USER="${USER:-$(id -un)}"
 
 # --reload re-executes the config in place, so the bar keeps its PID and nothing

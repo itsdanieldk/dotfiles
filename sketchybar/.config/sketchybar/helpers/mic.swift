@@ -2,20 +2,6 @@
 //
 // Prints "on" or "off". Used by plugins/mic.sh.
 //
-// WHY THIS AND NOT ioreg: every shell recipe for this reads
-// AppleHDAEngineInput or AppleUSBAudioEngine out of the IORegistry. Both were
-// measured returning nothing at all on this machine (Apple Silicon, macOS 26) —
-// the properties those recipes match on are gone.
-//
-// WHY IT NEEDS NO PERMISSION: this only enumerates devices and reads a property.
-// It never opens an input stream, so it never touches TCC and never raises a
-// microphone prompt. kAudioDevicePropertyDeviceIsRunningSomewhere is true when
-// ANY process on the system is running that device — which is exactly the
-// question, and is why this reports other apps' recording, not our own.
-//
-// WHY IT IS COMPILED: `/usr/bin/swift` interpreting even a trivial script
-// measured 1.25s, which is not pollable. Compiled it runs in single-digit ms.
-// mic.sh builds it on demand; the install script builds it up front.
 
 import CoreAudio
 import Foundation
@@ -34,9 +20,6 @@ func devices() -> [AudioObjectID] {
     return ids
 }
 
-// A device is an input if it has at least one channel on the input scope.
-// Output-only devices report a zero-length stream configuration there, and every
-// speaker on the system would otherwise count as a microphone.
 func hasInput(_ id: AudioObjectID) -> Bool {
     var addr = AudioObjectPropertyAddress(
         mSelector: kAudioDevicePropertyStreamConfiguration,

@@ -2,54 +2,113 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Working agreement
+
+**Never run git operations** — no commits, no branches, no staging, no history rewriting — unless
+explicitly asked in that message. Edit files and report; the user drives git.
+
 ## What This Is
 
-macOS dotfiles managed with GNU Stow. Each top-level directory (aerospace, bat, btop, claude, git, hushlogin, kitty, lazygit, nvim, ssh, zsh) is a stow package whose contents mirror the home directory structure (e.g. `zsh/.zshrc` symlinks to `~/.zshrc`).
+macOS dotfiles managed with GNU Stow. Each top-level directory (`aerospace`, `bat`, `borders`,
+`btop`, `claude`, `git`, `kitty`, `lazygit`, `nvim`, `raycast`, `sketchybar`, `ssh`, `zsh`) is a
+stow package whose contents mirror `$HOME` (e.g. `zsh/.zshrc` → `~/.zshrc`).
+
+**Stow runs `--no-folding`** (set in `install` and `.stowrc`): directories are created for real and
+only tracked leaf files are symlinked. This stops an app-managed directory (`~/.ssh`, `~/.claude`)
+being folded into a symlink pointing *into the repo*, which would let runtime state and secrets get
+written inside it. **Tradeoff: a NEW file in an existing package needs a re-stow before anything
+sees it** — an edit to an existing file takes effect immediately, a new file does not.
 
 ## Commands
 
-- Syntax-check the install script: `zsh -n install`
-- Re-stow a single package: `stow -d ~/dotfiles --no-folding -R <package>`
-- Run the full bootstrap: `./install` (interactive, prompts y/N for each step; use `./install --yes` for non-interactive, `./install --adopt` to allow stow conflict adoption)
+```sh
+zsh -n install                              # syntax-check (install is zsh, not bash)
+stow -d ~/dotfiles --no-folding -R <pkg>    # re-stow one package
+./install [--yes] [--adopt]                 # bootstrap; interactive y/N per step
+./scripts/lint-sketchybar.sh                # SketchyBar silent-failure checks
+./scripts/lint-aerospace.sh                 # AeroSpace cross-file coupling checks
+```
 
-## Shell
+`install` is **zsh**, not bash: it uses `read -q`, `print`, and the `*(/)` glob qualifier.
 
-All scripts use **zsh** (not bash). The install script relies on zsh-specific builtins (`read -q`, `print`) and glob qualifiers (`*(/)` for directories).
+`--adopt` is destructive toward the repo — stow moves the existing `$HOME` file *into* the repo,
+overwriting the tracked version. Always diff after using it.
 
-## Install Script
+## Hardware assumptions
 
-`./install` is an interactive bootstrap with `set -eu`. It skips already-installed brew packages, catches individual failures with `|| warn`. Flags: `--yes`/`-y` for non-interactive mode, `--adopt` to opt into stow conflict adoption.
+**Mac Studio (M4 Max), one 2560×1440 external.** No battery, no built-in display, no notch.
+AeroSpace and SketchyBar are tuned for exactly this: no per-monitor gaps, no
+`workspace-to-monitor-force-assignment`, no notch arithmetic. Don't reintroduce multi-monitor or
+laptop assumptions without a second display actually present.
 
-- **Stow conflicts fail by default.** If `$HOME` already has files that would collide with the symlinks, the script errors out. To resolve, re-run with `--adopt` — but that's destructive toward the repo: stow moves the existing home-directory file *into the repo* (overwriting the tracked version) and symlinks it back. Always `git diff` after running with `--adopt` before committing.
-- **Brewfile loop reads from FD 3** (`while ... <&3; done 3< Brewfile`) because `ask()`'s `read -q` consumes stdin. If you refactor the loop to a plain `< Brewfile`, every `ask` prompt eats the next Brewfile line and packages get silently skipped.
-- **Brewfile parser handles `tap`, `brew`, `cask`** — all three must use the exact `<directive> "pkg"` quoting; the regex (`^(brew|cask|tap)[[:space:]]+"([^"]+)"`) won't match anything else.
-- **Third-party taps must be trusted, not just added.** Homebrew 6+ refuses to load formulae/casks from an untrusted tap (`Error: Refusing to load ... from untrusted tap`). Trust is separate state in `${XDG_CONFIG_HOME:-~/.config}/homebrew/trust.json`, falling back to `~/.homebrew/trust.json` (the script probes both, in that order), so `brew tap` alone is not enough and a tap can be present but unusable. The install script's tap branch runs `brew trust --tap` after tapping, and re-prompts for taps that are already added but untrusted. Keep the tap list minimal — each one is a third party trusted to run install code — and prefer homebrew-core when it carries the package.
-- **`brew install` in the install script passes `--formula` deliberately.** Some taps ship a formula *and* a cask under the same name (`azure/azd` does). A bare `brew install` can resolve to the cask, which then never matches the `brew list --formula` skip-check, so the package re-prompts on every run.
-- **.NET global tools live in the `install` script, not a `dotnet-tools.json`.** That filename is the *local* tool manifest format: it belongs inside a project, is created by `dotnet new tool-manifest`, and is consumed by `dotnet tool restore`. Global (`-g`) tools have no manifest at all — they install into `~/.dotnet/tools` (put on PATH by `.zprofile`). Don't "consolidate" the `dotnet_tools` array into a manifest file; they are different mechanisms with different invocation (`dotnet-ef` vs `dotnet ef`). Array entries are NuGet package IDs, which can differ from the command they provide (`dotnet-outdated-tool` → `dotnet-outdated`).
-- **The hand-rolled Brewfile parser is deliberate, not an oversight.** `brew bundle` exists and would replace it, but it is all-or-nothing; the parser is what enables the per-package y/N prompt. Don't "simplify" it to `brew bundle` without dropping that feature knowingly.
+## Keyboard — two independent hazards on `alt`
 
-## Adding a New Stow Package
+- **`alt-<digit>` collides with the Danish layout.** `[ ] { } \` live on the Option layer of the
+  digit row (`alt-8`, `alt-9`, `alt-shift-7/8/9`) with no other route, so binding those makes them
+  untypable system-wide. **Workspaces are on `ctrl-<digit>` for this reason** — don't "tidy" them
+  back to upstream's `alt`. Measured with `UCKeyTranslate`: `ctrl-8` → `8`, but `cmd-alt-8` → `[`,
+  so `cmd` is *not* an escape. Same for Norwegian/Swedish/Finnish/German.
+- **`alt-<letter>` collides with zsh widgets** (`^[b`/`^[f` word motion, `^[d` kill-word, …).
+  Check `bindkey -M emacs` before adding one.
 
-Create a directory whose internal structure mirrors the home-relative path (e.g. `foo/.config/foo/config.toml`). The install script's stow loop picks it up automatically via the `*(/)` glob qualifier.
+`kitty.conf` sets `macos_option_as_alt left`, so in the terminal the **right** Option key composes
+layout characters and the left one sends `ESC` sequences.
 
-## Architecture Notes
+## SketchyBar — four traps, each rediscovered more than once
 
-- **Catppuccin Frappé** is the unified theme across kitty, nvim, bat, btop, lazygit, delta (git pager), and fzf (via `FZF_DEFAULT_OPTS` in `.zshrc`). When adding new tools with theme support, use Catppuccin Frappé for consistency.
-- **Kitty theme** is extracted to `kitty/.config/kitty/themes/catppuccin-frappe.conf` via `include` — edit the theme file, not `kitty.conf`.
-- **Git pager** is `delta` (not `less`). The `[delta]` section in `.gitconfig` is the single source of truth — lazygit invokes bare `delta`, which reads that section itself. lazygit's key is `git.pagers[].pager` (an *array* since 0.55; `git.paging` is the legacy form it migrates from). A bare `git.pager` is silently ignored, with no warning — verify changes actually took effect rather than trusting the config to be read.
-- **SSH config is first-match-wins.** `Host *` must stay at the bottom of `ssh/.ssh/config`; a keyword set there can never be overridden by a `Host` block below it. `Include ~/.ssh/config.local` stays at the very top so machine-local overrides win (a missing include file is not an error).
-- **AeroSpace binds keys system-wide**, ahead of kitty and zsh. Its config deliberately uses *numeric* workspaces only: upstream's `default-config.toml` binds `alt-<letter>` for 26 letter-named workspaces, which would swallow `^[c` (fzf-cd-widget), `^[b`/`^[f` (word motion), `^[d` (kill-word) and more. Before adding any `alt-<letter>` binding — in `aerospace.toml`, `kitty.conf`, or `.zshrc` — check it against `bindkey -M emacs` first. Config lives at `aerospace/.config/aerospace/aerospace.toml`; a stray `~/.aerospace.toml` makes AeroSpace error on the ambiguity.
-- **`.zprofile` opens with `typeset -U path PATH`, and that line is load-bearing.** This file appends to PATH unconditionally and every login shell re-sources it (a terminal login, kitty, and VS Code each add another copy), so without the unique-array flag entries accumulate. It must come before any PATH manipulation for later additions — including those in `.zshrc` — to be deduped.
-- **The `Telemetry` block in `.zprofile` must stay ahead of the `Homebrew` block.** The Homebrew section runs `brew shellenv`, so `HOMEBREW_NO_ANALYTICS` has to already be exported by then. Variable names there were each taken from the tool itself rather than from memory (e.g. `AZURE_CORE_COLLECT_TELEMETRY` is what knack builds from `ENV_VAR_PREFIX='AZURE'`); verify against the tool before adding more.
-- **gitignore has no trailing-comment syntax.** `#` only starts a comment at the start of a line, so `.ionide/  # cache` becomes part of the pattern and silently stops matching — no error, no warning. Keep comments on their own lines in both `.gitignore` and `git/.config/git/ignore`. Those two files are different scopes: the former covers this repo, the latter is stowed to `~/.config/git/ignore` and applies machine-wide.
-- **Powerlevel10k** is the zsh prompt. Config lives in `zsh/.p10k.zsh`. The instant prompt block at the top of `.zshrc` must remain first — nothing can print to stdout before it.
-- **Neovim** uses lazy.nvim for plugin management. Plugin specs live in `nvim/.config/nvim/lua/plugins/`. Core config (options, keymaps) lives in `nvim/.config/nvim/lua/config/`. There is deliberately no LSP (stripped in 539109d) — so nothing publishes diagnostics, and `blink.cmp` has no `lsp` source. Add diagnostic keymaps back only alongside something that produces them.
-- **`claude/.claude/statusline.sh` is vendored third-party code** ([daniel3303/ClaudeCodeStatusLine](https://github.com/daniel3303/ClaudeCodeStatusLine), see `VERSION` at the top). It reads OAuth credentials and makes network calls, so review diffs before pulling upstream changes. Local deviations from upstream: single-pass `jq` parsing, `$TMPDIR` cache dir, and the bearer token passed via `curl --config -` (never argv, which `ps` exposes). It must stay **bash 3.2**-compatible — `bash` resolves to `/bin/bash` on a machine without Homebrew's bash, which is not in the Brewfile.
-- **Zsh load order** in `.zshrc` is critical and must be preserved:
-  1. Powerlevel10k instant prompt (must be first — nothing can print to stdout before it)
-  2. Oh My Zsh config + `source $ZSH/oh-my-zsh.sh` — any `fpath` additions (e.g. `$HOME/.docker/completions`) must come *before* the source line, since OMZ runs `compinit` during sourcing. In the `plugins=()` array, `fzf-tab` must come *before* `zsh-autosuggestions` and `zsh-syntax-highlighting` — fzf-tab wraps the completion widget and the syntax/autosuggestion plugins wrap the line editor; swapping their order silently breaks tab completion or kills syntax highlighting.
-  3. Aliases and shell tool inits (fzf, zoxide, direnv)
-  4. `source ~/.p10k.zsh`
-  5. `setopt aliases` (required — p10k leaks `noaliases` from its config)
-- **Brewfile format** uses `tap "pkg"`, `brew "pkg"`, or `cask "pkg"` — the install script's regex parser depends on this exact quoting.
-- **Stow uses `--no-folding`** (set in `install` and `.stowrc`): target directories are created as real directories and only tracked leaf files are symlinked. This stops stow from folding an app-managed directory (`~/.ssh`, `~/.claude`, `~/.config/btop`) into a single symlink that points into the repo — which would otherwise let app runtime state and secrets (e.g. `~/.claude/.credentials.json`) get written *inside* the repo. Tradeoff: adding a *new* file to an existing package requires a re-stow to link it. `.gitignore` also defensively ignores everything under `ssh/.ssh/` and `claude/.claude/` except the tracked configs.
+All four fail *silently*: the bar comes up, an item is simply absent or stale, and nothing says why.
+`./scripts/lint-sketchybar.sh` checks the first three.
+
+1. **An item whose script sets item-level `drawing=off` MUST also set `updates=on`.** Under the
+   config-wide `updates=when_shown`, a hidden item stops being updated entirely — so it works after
+   a reload, hides itself, and never runs again. `updates=on` with `update_freq=0` stays event-only,
+   so it costs no polling. Note `label.drawing=off` is *not* this — it hides a component, not the
+   item.
+2. **New plugin scripts need `chmod +x`.** SketchyBar `fork_exec`s them and reports nothing when the
+   bit is missing.
+3. **A plugin has less TCC access than your terminal.** The bar is launched by AeroSpace with no
+   Full Disk Access. Anything TCC-protected under `~/Library` reads fine by hand and fails with
+   `EPERM` in the plugin, at correct Unix permissions. **Test reads from a script the bar actually
+   runs**, not from a shell.
+4. **Don't trust `macmon`'s `temp.cpu_temp_avg`.** Bimodal at flat idle — measured landing on ~31.9
+   or ~38.1 and never between, dropping to 20 °C at 0.06 W. It is a mean over a varying sensor set.
+   `helpers/thermal.swift` exists because of this.
+
+Several properties are **not echoed by `sketchybar --query`** (`label.max_chars`, `blur_radius`,
+`notch_*`), so a wrong value looks identical to a right one. Verify behaviour, not the query.
+
+## Install script gotchas
+
+- **The Brewfile loop reads from FD 3** (`... <&3; done 3< Brewfile`) because `ask()`'s `read -q`
+  consumes stdin. Convert it to a plain `< Brewfile` and every prompt eats the next line, silently
+  skipping packages.
+- **`brew install` passes `--formula` deliberately** — some taps ship a formula *and* a cask under
+  one name, and the cask never matches the `brew list --formula` skip-check, so it re-prompts
+  forever.
+- **Taps must be trusted, not just added** (Homebrew 6+). The script runs `brew trust --tap`; a tap
+  can be present but unusable.
+- **The hand-rolled Brewfile parser is deliberate.** `brew bundle` would replace it but is
+  all-or-nothing; the parser is what enables the per-package y/N prompt.
+- Brewfile format is exactly `tap "pkg"` / `brew "pkg"` / `cask "pkg"` — the regex depends on it.
+
+## `.zshrc` load order — must be preserved
+
+1. Powerlevel10k instant prompt **first**; nothing may print to stdout before it.
+2. Oh My Zsh config, then `source $ZSH/oh-my-zsh.sh`. Any `fpath` additions go *before* the source
+   line (OMZ runs `compinit` during it). In `plugins=()`, **`fzf-tab` must precede
+   `zsh-autosuggestions` and `zsh-syntax-highlighting`** — fzf-tab wraps the completion widget while
+   the other two wrap the line editor; the wrong order silently breaks completion or highlighting.
+3. Aliases and tool inits (fzf, zoxide, direnv)
+4. `source ~/.p10k.zsh`
+5. `setopt aliases` — required, p10k leaks `noaliases`.
+
+## Other
+
+- **Theme is Catppuccin Frappé** across kitty, nvim, bat, btop, lazygit, delta and fzf. Match it.
+- **`claude/.claude/statusline.sh` is vendored** ([daniel3303/ClaudeCodeStatusLine]); it reads OAuth
+  credentials and makes network calls, so review diffs before pulling upstream. Must stay **bash
+  3.2**-compatible.
+- A stray `~/.aerospace.toml` makes AeroSpace error on the ambiguity — config lives only at
+  `aerospace/.config/aerospace/aerospace.toml`.
+
+[daniel3303/ClaudeCodeStatusLine]: https://github.com/daniel3303/ClaudeCodeStatusLine

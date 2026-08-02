@@ -33,6 +33,7 @@ brew "eza"
 brew "fzf"
 brew "jq"
 brew "zoxide"
+brew "media-control"
 
 # --- Utilities ---
 brew "fastfetch"
@@ -48,6 +49,7 @@ brew "gh"
 brew "git-delta"
 brew "lazygit"
 brew "lazydocker"
+brew "shellcheck"
 
 # --- Languages & runtimes ---
 brew "direnv"

@@ -2,11 +2,19 @@
 # Current conditions from wttr.in.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
-LOCATION=""
-CACHE="${TMPDIR:-/tmp}/sketchybar-weather"
+require curl
 
-reading="$(curl -s --max-time 5 "https://wttr.in/${LOCATION}?format=%C|%t" 2>/dev/null)"
+LOCATION="${SKETCHYBAR_WEATHER_LOCATION:-}"
+CACHE="$(state_file weather)"
+
+if [ "$LOCATION" = "off" ]; then
+    sketchybar --set "$NAME" drawing=off
+    exit 0
+fi
+
+reading="$(curl -sf --max-time 5 "https://wttr.in/${LOCATION}?format=%C|%t" 2>/dev/null)"
 
 case "$reading" in
     *"|"*"°"*) printf '%s' "$reading" > "$CACHE" ;;

@@ -70,7 +70,7 @@ each declared tap trust as it adds it.
 
 | Package | Contents |
 |---------|----------|
-| `aerospace` | [AeroSpace](https://github.com/nikitabobko/AeroSpace) tiling WM. Numeric workspaces on `alt-1`–`alt-9`, focus/move on `alt-hjkl`. Needs Accessibility permission; does **not** start at login |
+| `aerospace` | [AeroSpace](https://github.com/nikitabobko/AeroSpace) tiling WM. Numeric workspaces on `ctrl-1`–`ctrl-9` (**not** `alt` — that is where a Danish layout keeps `[ ] { } \`), focus/move on `alt-hjkl`. Needs Accessibility permission; does **not** start at login |
 | `bat` | bat config (Catppuccin Frappé theme) |
 | `btop` | btop Catppuccin Frappé theme (the install script seeds `color_theme = "catppuccin_frappe"` for you) |
 | `claude` | Claude Code settings and statusline |

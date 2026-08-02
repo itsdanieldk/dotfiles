@@ -23,16 +23,5 @@ export LAVENDER=0xffbabbf1
 
 export TRANSPARENT=0x00000000
 
-# Island backgrounds. The bar itself is fully transparent (color=0x0 in
-# sketchybarrc) — these pills are the only thing drawn, so their alpha byte is
-# the single knob for how see-through the whole bar looks.
-#   0xe6 90%   0xcc 80%   0xb3 70% (current)   0x99 60%   0x80 50%
-# Below about 60% the Catppuccin text starts losing contrast on a busy wallpaper.
-# There is no blur to fall back on: blur_radius is a BAR-level property and there
-# is no background.blur_radius, so enabling it would frost the entire bar
-# rectangle including the gaps between islands — a blurred band across the whole
-# screen top, which is exactly the effect the islands exist to avoid.
 export ISLAND=0xb3232634
-# Kept fully opaque on purpose: as the fill gets more transparent the border is
-# what keeps the pill's edge crisp and its shape readable against the desktop.
 export ISLAND_BORDER=0xff414559

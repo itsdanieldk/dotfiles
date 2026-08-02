@@ -444,20 +444,37 @@ fi
 # ============================================================
 # Post-stow seeding
 # ============================================================
-# --- sketchybar mic helper ---
+# --- sketchybar compiled helpers ---
 # Compiled, not interpreted: `swift <file>` on a trivial script measured 1.25s,
-# which is not pollable. The binary is written next to the stowed source, which
+# which is not pollable. Binaries are written next to the stowed source, which
 # lands in $HOME rather than in the repo because stow runs --no-folding (helpers/
-# is a real directory containing one symlink). mic.sh rebuilds it on demand too,
-# so a `git pull` that changes the source doesn't need a re-run of this script.
-mic_src="${HOME}/.config/sketchybar/helpers/mic.swift"
-if [[ -r $mic_src ]] && command -v swiftc &>/dev/null; then
-    if swiftc -O -o "${mic_src:h}/mic" "$mic_src" 2>/dev/null; then
-        ok "sketchybar mic helper built."
+# is a real directory containing symlinks). Both callers (mic.sh, system.sh)
+# rebuild on demand too, so a `git pull` that changes a source doesn't need a
+# re-run of this script.
+#
+# THREE-WAY GUARD, DELIBERATELY. An earlier version tested
+# `[[ -r $src ]] && command -v swiftc` in one condition, which meant a MISSING
+# SOURCE was indistinguishable from a missing toolchain and both exited silently
+# — no ok, no warn, nothing. thermal.swift was untracked in git for a while, and
+# a fresh clone would have produced a bar with no temperature and no explanation.
+# Distinguish the three outcomes so absence is loud.
+build_sb_helper() {
+    local name=$1 what=$2
+    local src="${HOME}/.config/sketchybar/helpers/${name}.swift"
+
+    if [[ ! -r $src ]]; then
+        warn "sketchybar ${name} helper source missing at ${src}; ${what}"
+    elif ! command -v swiftc &>/dev/null; then
+        warn "swiftc not found, so the sketchybar ${name} helper was not built; ${what}"
+    elif swiftc -O -o "${src:h}/${name}" "$src" 2>/dev/null; then
+        ok "sketchybar ${name} helper built."
     else
-        warn "sketchybar mic helper failed to build; the mic item will stay hidden."
+        warn "sketchybar ${name} helper failed to build; ${what}"
     fi
-fi
+}
+
+build_sb_helper mic     "the mic item will stay hidden."
+build_sb_helper thermal "the temperature will be omitted from the system island."
 
 # --- btop theme ---
 # btop.conf is machine-local (btop rewrites it on every exit) so it isn't tracked.

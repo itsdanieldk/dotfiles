@@ -3,16 +3,22 @@
 # disconnect), with a query for the startup pass.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
-dev="$(networksetup -listallhardwareports 2>/dev/null \
-    | awk '/Hardware Port: Wi-Fi/{getline; print $2; exit}')"
-dev="${dev:-en0}"
-
-if ifconfig "$dev" 2>/dev/null | grep -q "status: active"; then
-    up=1
+DEV_CACHE="$(state_file wifi-dev)"
+if [ -s "$DEV_CACHE" ]; then
+    read -r dev < "$DEV_CACHE"
 else
-    up=0
+    dev="$(networksetup -listallhardwareports 2>/dev/null \
+        | awk '/Hardware Port: Wi-Fi/{getline; print $2; exit}')"
+    dev="${dev:-en0}"
+    printf '%s' "$dev" > "$DEV_CACHE"
 fi
+
+case "$(ifconfig "$dev" 2>/dev/null)" in
+    *"status: active"*) up=1 ;;
+    *)                  up=0 ;;
+esac
 
 if [ "$SENDER" = "wifi_change" ]; then
     ssid="$INFO"

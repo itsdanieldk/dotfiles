@@ -2,6 +2,7 @@
 # Bluetooth: power state, and what's actually connected.
 
 source "$HOME/.config/sketchybar/colors.sh"
+source "$HOME/.config/sketchybar/lib.sh"
 
 MAX_LEN=8
 
@@ -34,9 +35,7 @@ case "$state" in
         case "$label" in
             *' devices') ;;
             *)
-                if [ "${#label}" -gt "$MAX_LEN" ]; then
-                    label="$(printf '%s' "$label" | cut -c1-"$MAX_LEN")…"
-                fi
+                label="$(truncate_label "$label" "$MAX_LEN")"
                 ;;
         esac
         sketchybar --set "$NAME" drawing=on icon="󰂱" icon.color="$BLUE" \
