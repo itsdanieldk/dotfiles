@@ -58,7 +58,13 @@ PLUGIN_DIR="$CONFIG_DIR/plugins"
 # Plugins shell out to `aerospace` and `sketchybar`. Set PATH explicitly so the
 # bar behaves the same whether it was launched from a terminal or by launchd,
 # which starts with a minimal PATH.
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+# BOTH Homebrew prefixes: /opt/homebrew on Apple Silicon, /usr/local on Intel.
+# Prepending a directory that does not exist is harmless, and this avoids paying
+# for a `brew --prefix` subprocess every time the bar starts. Without the Intel
+# entry every plugin depending on aerospace/macmon/gh/icalBuddy would silently
+# degrade on an Intel Mac — they all hide rather than error when a binary is
+# missing, so the bar would come up looking merely quiet.
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:$PATH"
 
 source "$CONFIG_DIR/colors.sh"
 
@@ -251,6 +257,31 @@ sketchybar --add event aerospace_workspace_change
 #   3. Measure INK, not the typographic advance. text_prepare_line sizes items
 #      with kCTLineBoundsUseGlyphPathBounds and Nerd Font glyphs are drawn wider
 #      than their cell, so a "monospaced" 7.38 advance means nothing.
+# ONE DRIVER REPAINTS ALL NINE PILLS. The workspace items carry no script and no
+# subscription of their own; this invisible item owns both and rewrites every
+# pill in a single sketchybar call — see plugins/workspaces.sh.
+#
+# Each pill used to run its own copy of the plugin, and each copy shelled out to
+# `aerospace list-workspaces` to ask a question whose answer is the same for all
+# nine. Measured 25ms per call, 104ms for the nine, plus nine greps — and because
+# they were also subscribed to front_app_switched, all of that ran on every
+# application switch. Now it is 2 aerospace calls and 1 sketchybar call.
+#
+# width=0 so it takes no space. It is BLANK_STYLE (visible, paints nothing)
+# rather than drawing=off, because a hidden item is not laid out at all — and it
+# needs updates=on for the same reason every self-hiding item does: an item that
+# is not drawn is not updated under the config-wide when_shown default.
+#
+# It sits OUTSIDE island.spaces deliberately. A bracket's rect is the union of
+# its members, so a zero-width member would not change the pill, but keeping the
+# driver out of the group keeps "what the island contains" honest.
+sketchybar \
+    --add item spaces.driver left \
+    --subscribe spaces.driver aerospace_workspace_change front_app_switched \
+    --set spaces.driver "${BLANK_STYLE[@]}" width=0 \
+        updates=on \
+        script="$PLUGIN_DIR/workspaces.sh"
+
 sketchybar \
     --add item inset.spaces.l left \
     --set inset.spaces.l "${BLANK_STYLE[@]}" width=6
@@ -259,7 +290,6 @@ space_items=()
 for sid in $(aerospace list-workspaces --all); do
     sketchybar \
         --add item "space.$sid" left \
-        --subscribe "space.$sid" aerospace_workspace_change front_app_switched \
         --set "space.$sid" \
             label="$sid" \
             icon.drawing=off \
@@ -267,8 +297,9 @@ for sid in $(aerospace list-workspaces --all); do
             `# padding is the outer edge). It doubles as the pill's interior.` \
             label.padding_left=6 \
             label.padding_right=6 \
-            click_script="aerospace workspace $sid" \
-            script="$PLUGIN_DIR/aerospace.sh $sid"
+            `# click_script only. The colours come from spaces.driver above; an` \
+            `# item needs no script of its own to be repainted by another item.` \
+            click_script="aerospace workspace $sid"
     space_items+=("space.$sid")
 done
 
@@ -744,7 +775,14 @@ sketchybar \
         `# config-wide when_shown default stops being polled, so mic.sh could` \
         `# never run again to notice that recording had started.` \
         updates=on \
-        update_freq=2 \
+        `# 5, NOT 2. The helper costs 63ms per run (measured median of 10), so` \
+        `# every second of interval here is worth ~1900ms/min of CPU. At 2 this` \
+        `# item alone was 1890ms/min — 36% of the entire bar's budget and the` \
+        `# most expensive thing in the config. The old value came from a comment` \
+        `# in mic.swift claiming the helper ran in "single-digit ms", which was` \
+        `# wrong by 8x; that comment is now corrected. Two seconds of latency on` \
+        `# a recording indicator buys nothing. Lower this only after re-measuring.` \
+        update_freq=5 \
         script="$PLUGIN_DIR/mic.sh"
 
 # A macOS Focus-mode indicator (Do Not Disturb / Work / …) WAS BUILT HERE AND
@@ -838,7 +876,15 @@ sketchybar \
         `# all three items when macmon fails, and a hidden item under when_shown` \
         `# stops being polled — the failure would be permanent and silent.` \
         updates=on \
-        update_freq=30 \
+        `# 60, NOT 30. One invocation costs ~930ms — macmon alone is 854ms` \
+        `# (measured), because it samples a whole SoC telemetry frame to extract` \
+        `# three numbers. At 30 that was 1860ms/min, the second-largest cost in` \
+        `# the bar. CPU%, RAM and fan RPM at 60s resolution is not information` \
+        `# anyone acts on faster. The real fix is to stop shelling out to macmon` \
+        `# for values that host_statistics64 and host_processor_info give almost` \
+        `# free, but fan RPM has no obvious no-sudo source — the HID sensor page` \
+        `# exposes temperature (usage 5) and nothing fan-shaped.` \
+        update_freq=60 \
         script="$PLUGIN_DIR/system.sh" \
         click_script="open -a 'Macs Fan Control'" \
     --add item memory right \
