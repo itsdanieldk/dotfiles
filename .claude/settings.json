@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in */install) zsh -n \"$f\";; esac; }",
+            "timeout": 20,
+            "statusMessage": "zsh -n install"
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in *.sh) command -v shellcheck >/dev/null || exit 0; shellcheck -S warning -e SC1091 \"$f\";; esac; }",
+            "timeout": 30,
+            "statusMessage": "shellcheck"
+          }
+        ]
+      }
+    ]
+  }
+}

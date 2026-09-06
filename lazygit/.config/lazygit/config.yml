@@ -22,5 +22,7 @@ gui:
   nerdFontsVersion: "3"
 
 git:
-  pagers:
-    - pager: delta --paging=never
+  diffRenderers:
+    - type: stdinFilter
+      command: delta --paging=never
+      colorArg: always

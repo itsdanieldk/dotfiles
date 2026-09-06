@@ -32,7 +32,6 @@
     dotnet_version          # .NET version
     node_version            # Node.js version
     python_env              # Python virtualenv
-    docker_context          # Docker context (when not default)
     azure                   # Azure account
     context                 # user@host (SSH only)
   )
@@ -119,11 +118,6 @@
   typeset -g POWERLEVEL9K_PYTHON_ENV_FOREGROUND=37
   typeset -g POWERLEVEL9K_PYTHON_ENV_SHOW_SYSTEM_VENV=false
 
-  # === Docker Context ===
-  typeset -g POWERLEVEL9K_DOCKER_CONTEXT_FOREGROUND=32
-  typeset -g POWERLEVEL9K_DOCKER_CONTEXT_{DEFAULT,COLIMA}_CONTENT_EXPANSION=  # hide default
-  typeset -g POWERLEVEL9K_DOCKER_CONTEXT_VISUAL_IDENTIFIER_EXPANSION=' '
-
   # === Azure ===
   typeset -g POWERLEVEL9K_AZURE_FOREGROUND=32
   typeset -g POWERLEVEL9K_AZURE_VISUAL_IDENTIFIER_EXPANSION='󰠅'
@@ -139,7 +133,9 @@
 
   # === Misc ===
   typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=true              # run `source ~/.p10k.zsh` after changes
-
-  (( ${#p10k_config_opts} )) && setopt ${p10k_config_opts[@]}
-  'builtin' 'unset' 'p10k_config_opts'
 }
+
+# Must stay outside the function above — its `emulate -L zsh` would scope these
+# away and leak `no_aliases` into the shell.
+(( ${#p10k_config_opts} )) && setopt ${p10k_config_opts[@]}
+'builtin' 'unset' 'p10k_config_opts'

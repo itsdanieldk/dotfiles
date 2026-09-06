@@ -1,31 +1,25 @@
 # ============================================================
 # dotfiles repo — local ignores
 # ============================================================
-# This file covers THIS repository only. Machine-wide ignores live in
-# git/.config/git/ignore, which stow links to ~/.config/git/ignore.
-#
-# NOTE: gitignore has no trailing-comment syntax. '#' only starts a comment at
-# the start of a line — appending one to a pattern makes it part of the pattern
-# and silently stops it matching. Keep every comment on its own line.
+# This repo only; machine-wide ignores live in git/.config/git/ignore.
+# No trailing-comment syntax: `pattern  # note` silently stops matching.
 
 
 # ============================================================
 # Claude Code project settings
 # ============================================================
-# Machine-local settings for working *in* this repo (permissions, etc).
-# Anchored with a leading slash so it matches only the repo root, never the
-# tracked `claude/` stow package.
-/.claude
+# Contents, not the directory: git cannot re-include below an excluded parent.
+/.claude/*
+!/.claude/skills/
+!/.claude/settings.json
 CLAUDE.local.md
 
 
 # ============================================================
 # Stow package allowlists
 # ============================================================
-# These two packages map to directories their app writes runtime state and
-# secrets into. Because stow uses --no-folding, those are real directories in
-# $HOME and the app can drop files straight into the repo. So: ignore
-# everything, then re-include only what we deliberately track.
+# --no-folding makes these real dirs in $HOME, so the app writes secrets
+# straight into the repo. Ignore everything, re-include only what we track.
 
 # SSH: track only the config — never keys, known_hosts, or other runtime files.
 ssh/.ssh/*
@@ -37,10 +31,9 @@ claude/.claude/*
 !claude/.claude/settings.json
 !claude/.claude/statusline.sh
 
-# SketchyBar: the mic helper is compiled from the tracked .swift source. Because
-# stow runs --no-folding, that build output lands in $HOME and can't reach the
-# repo anyway — this is belt and braces for anyone who builds in-tree.
-sketchybar/.config/sketchybar/helpers/mic
+# Git: the work identity is machine-local, like ~/.ssh/config.local. Keep the
+# file on disk so stow links it; git ignores a missing includeIf path.
+git/.config/git/config-work
 
 
 # ============================================================

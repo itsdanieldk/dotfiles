@@ -1,23 +1,24 @@
 # ============================================================
 # Global gitignore
 # ============================================================
-# Applies to every repository on this machine. Git picks this up automatically
-# from ~/.config/git/ignore — no core.excludesfile setting needed.
-# Repo-specific ignores for the dotfiles repo itself live in its .gitignore.
-#
-# NOTE: gitignore has no trailing-comment syntax. '#' only starts a comment at
-# the start of a line — appending one to a pattern makes it part of the pattern
-# and silently stops it matching. Keep every comment on its own line.
+# Every repo on this machine. Machine/editor state only — build artifacts
+# belong in the project's. No trailing comments: they become part of the pattern.
 
 
 # ============================================================
 # macOS
 # ============================================================
+# Finder's per-folder view settings.
 .DS_Store
+# Resource-fork sidecar directory left by AFP shares.
 .AppleDouble
+# Launch Services icon/handler override.
 .LSOverride
+# Resource-fork sidecars written on non-Apple filesystems.
 ._*
+# Spotlight index, at the root of a volume.
 .Spotlight-V100
+# Per-volume trash directory.
 .Trashes
 
 
@@ -26,30 +27,38 @@
 # ============================================================
 # Per-project machine-local settings — never shared.
 **/.claude/settings.local.json
+# Scratch directory Claude Code writes into a project while working.
+**/.claude/.cc-writes/
+# Personal per-project instructions, loaded alongside CLAUDE.md.
+CLAUDE.local.md
 
 
 # ============================================================
 # IDE / Editor
 # ============================================================
-# Visual Studio
+# Visual Studio's per-solution cache.
 .vs/
-# JetBrains (Rider, etc)
+# JetBrains project state (Rider, IntelliJ).
 .idea/
-# Ionide — F# support for VS Code
+# Ionide — F# support for VS Code.
 .ionide/
+# Local History extension only; the rest of .vscode/ is shared team config.
+.vscode/.history/
+
+
+# ============================================================
+# Tooling
+# ============================================================
+# direnv's cache — .envrc itself is often committed.
+.direnv/
 
 
 # ============================================================
 # .NET
 # ============================================================
-# Per-user project settings. '*.user' also covers Rider's *.DotSettings.user.
+# Per-user project settings; also covers Rider's *.DotSettings.user.
 *.user
+# Visual Studio solution user options.
 *.suo
-# FAKE — F# Make build cache
+# FAKE — F# Make build cache.
 .fake/
-
-# Deliberately NOT ignored globally: bin/ and obj/. They belong in a project's
-# own .gitignore, which `dotnet new gitignore` generates. A global rule would
-# also hit non-.NET repos that legitimately track a bin/ directory of scripts.
-
-**/.claude/.cc-writes/

@@ -9,7 +9,6 @@ setopt pipefail
 
 DOTFILES=${0:A:h}
 
-# Colored log helpers
 autoload -U colors && colors
 info()  { print -P "%F{blue}[INFO]%f  $1" }
 ok()    { print -P "%F{green}[OK]%f    $1" }
@@ -22,14 +21,22 @@ err()   { print -P "%F{red}[ERROR]%f $1" }
 # ============================================================
 AUTOYES=false
 ALLOW_ADOPT=false
+ALLOW_INSECURE=false
+
 for arg in "$@"; do
     case $arg in
-        --yes|-y) AUTOYES=true ;;
-        --adopt)  ALLOW_ADOPT=true ;;
+        --yes|-y)        AUTOYES=true ;;
+        --adopt)         ALLOW_ADOPT=true ;;
+        --allow-insecure) ALLOW_INSECURE=true ;;
         -h|--help)
-            print "Usage: ./install [--yes|-y] [--adopt]"
-            print "  --yes      Non-interactive (auto-yes to all prompts)"
-            print "  --adopt    Allow stow --adopt on conflict (DESTRUCTIVE: moves \$HOME files into the repo)"
+            print "Usage: ./install [--yes|-y] [--adopt] [--allow-insecure]"
+            print "  --yes             Non-interactive (auto-yes to all prompts EXCEPT the"
+            print "                    security-weakening ones, which are skipped instead)."
+            print "                    A fresh-machine run needs sudo primed first"
+            print "                    ('sudo -v'): Homebrew's installer uses 'sudo -n' here."
+            print "  --adopt           Allow stow --adopt on conflict (DESTRUCTIVE: moves \$HOME files into the repo)"
+            print "  --allow-insecure  Also auto-yes the prompts that WEAKEN a security control."
+            print "                    Only meaningful together with --yes."
             exit 0
             ;;
         *) err "Unknown flag: $arg"; exit 2 ;;
@@ -45,6 +52,24 @@ ask() {
     print
 }
 
+ask_insecure() {
+    if $AUTOYES && ! $ALLOW_INSECURE; then
+        warn "$1 [skipped — pass --allow-insecure to accept this non-interactively]"
+        return 1
+    fi
+    ask "$1"
+}
+
+
+# ============================================================
+# Architecture
+# ============================================================
+if [[ $(uname -m) != arm64 ]]; then
+    err "Apple Silicon (arm64) required — detected $(uname -m)."
+    err "Every Homebrew path here is hardcoded to /opt/homebrew; there is no Intel fallback."
+    exit 3
+fi
+
 
 # ============================================================
 # Xcode Command Line Tools
@@ -52,12 +77,7 @@ ask() {
 if ! xcode-select -p &>/dev/null; then
     if ask "Install Xcode Command Line Tools?"; then
         info "Installing Xcode Command Line Tools..."
-        xcode-select --install
-        # Bounded wait. `xcode-select --install` returns as soon as it launches
-        # the GUI installer, so a cancelled dialog or failed download would
-        # otherwise spin here forever — worst under --yes, where nothing is
-        # watching. The `(( ))` must stay inside `if`: it returns non-zero when
-        # false, which would trip `set -e` on its own.
+        xcode-select --install || warn "Could not start the CLT installer; waiting for it anyway..."
         waited=0
         until xcode-select -p &>/dev/null; do
             if (( waited >= 900 )); then
@@ -75,104 +95,81 @@ fi
 # ============================================================
 # Homebrew
 # ============================================================
+if [[ -x /opt/homebrew/bin/brew ]] && ! command -v brew &>/dev/null; then
+    eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+fi
+
 if ! command -v brew &>/dev/null; then
     if ask "Install Homebrew?"; then
         info "Installing Homebrew..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        # Apple Silicon installs to /opt/homebrew, Intel to /usr/local.
-        for brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-            [[ -x $brew_bin ]] && { eval "$($brew_bin shellenv zsh)"; break }
-        done
-        ok "Homebrew installed."
+        typeset -a brew_env=()
+        $AUTOYES && brew_env=(NONINTERACTIVE=1)
+        if brew_bootstrap=$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh); then
+            env $brew_env /bin/bash -c "$brew_bootstrap" || warn "Homebrew installer exited non-zero, continuing..."
+        else
+            warn "Could not download the Homebrew installer, continuing..."
+        fi
+        if [[ -x /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+            ok "Homebrew installed."
+        else
+            warn "Homebrew bootstrap left no /opt/homebrew/bin/brew; skipping all brew steps."
+        fi
     fi
+fi
+
+if command -v brew &>/dev/null && [[ $(brew --prefix) != /opt/homebrew ]]; then
+    warn "brew resolves to $(brew --prefix), not the arm64 prefix /opt/homebrew."
+    warn "That is an Intel/Rosetta Homebrew — its bottles will be x86_64."
 fi
 
 
 # ============================================================
 # Brewfile packages
 # ============================================================
-# Reads from FD 3, not stdin: ask()'s `read -q` consumes stdin, so a plain
-# `< Brewfile` would let every prompt eat the next package line.
-
-# Return 0 if $1 is a tap that still needs trusting. Homebrew 6+ stores trust
-# separately from the tap list, so `brew tap` can list a tap that brew still
-# refuses to load from. Greps rather than using jq: taps are processed before
-# jq gets installed. The quoted exact match matters — searching for
-# "azure/kubelogin" must not match the entry "azure/kubelogin/kubelogin".
 brew_needs_trust() {
-    # Older Homebrew has no trust concept; nothing to do.
     brew trust --help &>/dev/null || return 1
-    local f="${XDG_CONFIG_HOME:-$HOME/.config}/homebrew/trust.json"
-    [[ -f $f ]] || f="${HOME}/.homebrew/trust.json"
-    [[ -f $f ]] || return 0
-    grep -q "\"$1\"" "$f" && return 1 || return 0
+    command -v jq &>/dev/null || return 1
+    brew trust --json v1 2>/dev/null | jq -e --arg t "$1" '.taps | index($t)' >/dev/null && return 1
+    return 0
 }
 
+handle_tap() {
+    local pkg=$1
+    if brew tap | grep -qxF -- "$pkg"; then
+        brew_needs_trust "$pkg" || { info "tap '${pkg}' already added and trusted, skipping."; return 0 }
+        ask "Tap '${pkg}' is added but NOT trusted — trust it?" \
+            || { warn "${pkg} left untrusted; its formulae will fail to install."; return 0 }
+        brew trust --tap "$pkg" || warn "Failed to trust ${pkg}, continuing..."
+        return 0
+    fi
+    ask "Add and trust tap '${pkg}'?" || return 0
+    brew tap "$pkg" || { warn "Failed to tap ${pkg}, continuing..."; return 0 }
+    brew trust --tap "$pkg" || warn "Tapped ${pkg} but failed to trust it; its formulae will fail to install."
+    return 0
+}
+
+typeset -A brew_flag=(brew --formula cask --cask)
+
 if command -v brew &>/dev/null; then
+    typeset -A installed
+    for p in ${(f)"$(brew list --formula 2>/dev/null)"}; do installed[brew:$p]=1; done
+    for p in ${(f)"$(brew list --cask 2>/dev/null)"};    do installed[cask:$p]=1; done
+
     while IFS= read -r line <&3; do
         [[ -z $line || $line == \#* ]] && continue
         [[ $line =~ '^(brew|cask|tap)[[:space:]]+"([^"]+)"' ]] || continue
-        type=$match[1]
-        pkg=$match[2]
-        # Skip if already installed/tapped
-        case $type in
-            tap)
-                if brew tap | grep -qx "$pkg"; then
-                    # Present is not the same as usable: Homebrew 6+ refuses to
-                    # load anything from an untrusted third-party tap, and trust
-                    # is separate state that `brew tap` does not grant.
-                    if brew_needs_trust "$pkg"; then
-                        if ask "Tap '${pkg}' is added but NOT trusted — trust it?"; then
-                            brew trust --tap "$pkg" || warn "Failed to trust ${pkg}, continuing..."
-                        else
-                            warn "${pkg} left untrusted; its formulae will fail to install."
-                        fi
-                    else
-                        info "tap '${pkg}' already added and trusted, skipping."
-                    fi
-                    continue
-                fi
-                ;;
-            brew)
-                if brew list --formula "$pkg" &>/dev/null; then
-                    info "'${pkg}' already installed, skipping."
-                    continue
-                fi
-                ;;
-            cask)
-                if brew list --cask "$pkg" &>/dev/null; then
-                    info "'${pkg}' already installed, skipping."
-                    continue
-                fi
-                ;;
-        esac
-        # Taps get their own wording: adding one also grants it trust, which is
-        # a security decision rather than just an install step.
+        type=$match[1] pkg=$match[2]
         if [[ $type == tap ]]; then
-            prompt="Add and trust tap '${pkg}'?"
-        else
-            prompt="Install ${type} '${pkg}'?"
+            handle_tap "$pkg"
+            continue
         fi
-        if ask "$prompt"; then
-            case $type in
-                tap)
-                    if brew tap "$pkg"; then
-                        brew trust --tap "$pkg" || warn "Tapped ${pkg} but failed to trust it; its formulae will fail to install."
-                    else
-                        warn "Failed to tap ${pkg}, continuing..."
-                    fi
-                    ;;
-                # --formula is explicit because some taps ship a formula AND a
-                # cask under the same name (azure/azd does). A bare
-                # `brew install` resolves to the cask, which then never matches
-                # the `brew list --formula` check above — re-prompting forever.
-                brew) brew install --formula "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
-                cask) brew install --cask "$pkg" || warn "Failed to install ${pkg}, continuing..." ;;
-            esac
-        fi
+        flag=${brew_flag[$type]}
+        (( ${+installed[$type:${pkg:t}]} )) && { info "'${pkg}' already installed, skipping."; continue }
+        ask "Install ${type} '${pkg}'?" || continue
+        brew install $flag "$pkg" || warn "Failed to install ${pkg}, continuing..."
     done 3< ${DOTFILES}/Brewfile
 
-    # Refresh tealdeer cache so 'tldr foo' works immediately after install
     if command -v tldr &>/dev/null; then
         info "Updating tldr cache..."
         tldr --update >/dev/null 2>&1 || warn "tldr cache update failed, continuing..."
@@ -181,256 +178,24 @@ fi
 
 
 # ============================================================
-# .NET global tools
-# ============================================================
-# Global (-g) tools have no manifest file. dotnet-tools.json is the *local*
-# manifest format — it belongs inside a project and is consumed by
-# `dotnet tool restore`, which is a different mechanism. Global tools install
-# into ~/.dotnet/tools, which .zprofile puts on PATH.
-# Entries are NuGet package IDs; note the ID and the command it provides can
-# differ (dotnet-outdated-tool installs the `dotnet-outdated` command).
-if command -v dotnet &>/dev/null; then
-    dotnet_tools=(
-        dotnet-ef              # EF Core migrations / scaffolding
-        dotnet-outdated-tool   # report outdated NuGet references
-    )
-    # One listing reused for every check, rather than one call per tool.
-    installed_tools=$(dotnet tool list -g 2>/dev/null) || installed_tools=""
-    for tool in $dotnet_tools; do
-        # Trailing space anchors the match so 'dotnet-ef' can't match a
-        # longer package ID that merely starts with it.
-        if print -r -- "$installed_tools" | grep -qi "^${tool} "; then
-            info "dotnet tool '${tool}' already installed, skipping."
-            continue
-        fi
-        if ask "Install dotnet tool '${tool}'?"; then
-            dotnet tool install -g "$tool" || warn "Failed to install ${tool}, continuing..."
-        fi
-    done
-fi
-
-
-# ============================================================
-# Oh My Zsh
-# ============================================================
-if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
-    if ask "Install Oh My Zsh?"; then
-        info "Installing Oh My Zsh..."
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc
-        ok "Oh My Zsh installed."
-    fi
-fi
-
-
-# ============================================================
-# Oh My Zsh theme & plugins
-# ============================================================
-ZSH_CUSTOM=${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}
-
-# --- Theme ---
-typeset -A custom_themes=(
-    powerlevel10k  https://github.com/romkatv/powerlevel10k.git
-)
-for theme url in ${(kv)custom_themes}; do
-    if [[ ! -d ${ZSH_CUSTOM}/themes/${theme} ]]; then
-        if ask "Install oh-my-zsh theme '${theme}'?"; then
-            git clone --depth=1 "$url" "${ZSH_CUSTOM}/themes/${theme}"
-            ok "${theme} installed."
-        fi
-    fi
-done
-
-# --- Plugins ---
-typeset -A custom_plugins=(
-    zsh-autosuggestions  https://github.com/zsh-users/zsh-autosuggestions.git
-    zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting.git
-    fzf-tab https://github.com/Aloxaf/fzf-tab.git
-)
-for plugin url in ${(kv)custom_plugins}; do
-    if [[ ! -d ${ZSH_CUSTOM}/plugins/${plugin} ]]; then
-        if ask "Install oh-my-zsh plugin '${plugin}'?"; then
-            git clone --depth=1 "$url" "${ZSH_CUSTOM}/plugins/${plugin}"
-            ok "${plugin} installed."
-        fi
-    fi
-done
-
-
-# ============================================================
-# macOS defaults
-# ============================================================
-# Each group is prompted separately. Finder/Dock changes are applied by the
-# killall at the end of their block; keyboard changes need a logout/login.
-
-# --- Finder ---
-if ask "Apply macOS Finder defaults?"; then
-    # Show all file extensions
-    defaults write NSGlobalDomain AppleShowAllExtensions -bool true
-    # Show hidden files
-    defaults write com.apple.finder AppleShowAllFiles -bool true
-    # Show path bar
-    defaults write com.apple.finder ShowPathbar -bool true
-    # Show status bar
-    defaults write com.apple.finder ShowStatusBar -bool true
-    # Default to list view
-    defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
-    # Disable warning when changing file extension
-    defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
-    # Keep folders on top when sorting by name
-    defaults write com.apple.finder _FXSortFoldersFirst -bool true
-    # Search the current folder by default
-    defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
-    # Don't write .DS_Store metadata on network or USB volumes
-    # (applies to volumes mounted after this runs)
-    defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
-    defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
-    # Show ~/Library
-    chflags nohidden ~/Library
-    killall Finder 2>/dev/null || true
-    ok "Finder defaults applied."
-fi
-
-# --- Gatekeeper ---
-# Deliberately its own prompt, and off the default path: this weakens a
-# security control rather than tweaking an appearance setting.
-if ask "SECURITY: disable the Gatekeeper 'downloaded from the internet' warning?"; then
-    defaults write com.apple.LaunchServices LSQuarantine -bool false
-    warn "LSQuarantine disabled — macOS will no longer warn on first-run of downloaded apps."
-fi
-
-# --- Dock ---
-if ask "Apply macOS Dock defaults?"; then
-    # Minimize windows into their application icon
-    defaults write com.apple.dock minimize-to-application -bool true
-    # Don't show recent applications
-    defaults write com.apple.dock show-recents -bool false
-    # Don't rearrange Spaces based on most recent use
-    defaults write com.apple.dock mru-spaces -bool false
-    # Faster Mission Control animation
-    defaults write com.apple.dock expose-animation-duration -float 0.1
-    # Auto-hide the Dock. The two lines below only tune the hide animation;
-    # without this they configure something that never happens.
-    defaults write com.apple.dock autohide -bool true
-    # Remove auto-hide delay
-    defaults write com.apple.dock autohide-delay -float 0
-    # Faster auto-hide animation
-    defaults write com.apple.dock autohide-time-modifier -float 0.3
-    # Icon size. Pin magnification off alongside it: it's unset by default, so
-    # the Dock would otherwise honour whatever the System Settings slider last
-    # did and hover-scale icons away from this size. Off makes tilesize the one
-    # size the Dock ever renders at. (largesize is the hover size, and is dead
-    # weight while magnification is false.)
-    defaults write com.apple.dock tilesize -int 28
-    defaults write com.apple.dock magnification -bool false
-    killall Dock 2>/dev/null || true
-    ok "Dock defaults applied."
-fi
-
-# --- Menu bar ---
-if ask "Auto-hide the macOS menu bar? (only if sketchybar starts at login)"; then
-    defaults write NSGlobalDomain _HIHideMenuBar -bool true
-    warn "Menu bar auto-hide takes effect after logout. The System Settings"
-    warn "toggle (Control Center > Automatically hide and show) applies instantly."
-fi
-
-# --- Keyboard ---
-if ask "Apply macOS keyboard defaults?"; then
-    # Fast key repeat — units are 15ms ticks, so 1.5 is 22.5ms between repeats.
-    # Below the System Settings "Fast" minimum (2); fractional values are
-    # undocumented but honored. Takes effect after logout/login.
-    defaults write NSGlobalDomain KeyRepeat -float 1.5
-    # Delay before repeat kicks in — 12 is 180ms, below the UI "Short" minimum (15).
-    defaults write NSGlobalDomain InitialKeyRepeat -int 12
-    # Disable auto-correct
-    defaults write NSGlobalDomain NSAutoCorrectionEnabled -bool false
-    # Disable smart quotes (they break code)
-    defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
-    # Disable smart dashes (they break code)
-    defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
-    # Enable full keyboard access (Tab through all UI controls)
-    defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
-    # Disable auto-capitalization
-    defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
-    # Disable auto period substitution (double-space to period)
-    defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
-    # Disable spell correction
-    defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
-    # Disable press-and-hold for accent characters (enables key repeat everywhere)
-    defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
-    ok "Keyboard defaults applied."
-fi
-
-# --- Launcher ---
-# Raycast replaces Spotlight on ⌘-Space.
-if ask "Free up ⌘Space for Raycast (disable the Spotlight shortcuts)?"; then
-    defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 64 \
-        '{ enabled = 0; value = { parameters = ( 32, 49, 1048576 ); type = standard; }; }'
-    defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 65 \
-        '{ enabled = 0; value = { parameters = ( 32, 49, 1572864 ); type = standard; }; }'
-    /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || warn "activateSettings failed; the change applies after logout."
-    ok "Spotlight shortcuts disabled."
-    warn "Verify: System Settings > Keyboard > Keyboard Shortcuts > Spotlight."
-    warn "Raycast's own settings are not file-based, so finish these by hand:"
-    warn "  1. Set the Raycast hotkey to ⌘Space."
-    warn "  2. Disable the Window Management extension — it duplicates AeroSpace"
-    warn "     and its hotkeys would fight alt-hjkl."
-    warn "  3. Settings > Script Commands > Add Script Directory >"
-    warn "     ~/.config/raycast/scripts"
-    warn "  4. Open Raycast Settings, run 'aerospace list-apps', and add its bundle"
-    warn "     ID to the float rules in aerospace.toml (a commented stub is there)."
-fi
-
-# --- Screenshots ---
-if ask "Apply macOS screenshot defaults?"; then
-    # Save screenshots to ~/Pictures/Screenshots instead of Desktop
-    defaults write com.apple.screencapture location -string "${HOME}/Pictures/Screenshots"
-    mkdir -p ${HOME}/Pictures/Screenshots
-    # Disable shadow in screenshots
-    defaults write com.apple.screencapture disable-shadow -bool true
-    # Save as PNG (lossless)
-    defaults write com.apple.screencapture type -string "png"
-    killall SystemUIServer 2>/dev/null || true
-    ok "Screenshot defaults applied."
-fi
-
-# --- Trackpad ---
-if ask "Apply macOS trackpad defaults?"; then
-    # Enable tap to click
-    #defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
-    # Three-finger drag. Built-in trackpad and Bluetooth Magic Trackpad are
-    # separate domains — writing only the first misses external trackpads.
-    defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerDrag -bool true
-    defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadThreeFingerDrag -bool true
-    ok "Trackpad defaults applied."
-fi
-
-# --- Misc power-user ---
-if ask "Apply miscellaneous power-user defaults?"; then
-    # Expand save panels by default
-    defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
-    defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
-    # Expand print panels by default
-    defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
-    defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
-    ok "Miscellaneous defaults applied."
-fi
-
-
-# ============================================================
 # Stow
 # ============================================================
+# Must precede Oh My Zsh: its --keep-zshrc only protects an EXISTING ~/.zshrc,
+# so with none linked yet it writes its template there and this step conflicts.
 if command -v stow &>/dev/null; then
     if ask "Stow dotfiles?"; then
         for dir in ${DOTFILES}/*(/); do
-            if stow -d ${DOTFILES} --no-folding -n -R ${dir:t} 2>/dev/null; then
-                stow -d ${DOTFILES} --no-folding -R ${dir:t}
-                ok "${dir:t} stowed."
+            pkg=${dir:t}
+            if conflicts=$(stow -d ${DOTFILES} --no-folding -n -R ${pkg} 2>&1); then
+                stow -d ${DOTFILES} --no-folding -R ${pkg}
+                ok "${pkg} stowed."
             elif $ALLOW_ADOPT; then
-                warn "${dir:t} has conflicts; --adopt set, resolving..."
-                stow -d ${DOTFILES} --no-folding --adopt -R ${dir:t}
-                warn "Adopted ${dir:t}: review 'git diff' for clobbered tracked files."
+                warn "${pkg} has conflicts; --adopt set, resolving..."
+                stow -d ${DOTFILES} --no-folding --adopt -R ${pkg}
+                warn "Adopted ${pkg}: review 'git diff' for clobbered tracked files."
             else
-                err "${dir:t} has conflicts with files in \$HOME."
+                err "${pkg} has conflicts with files in \$HOME."
+                print -r -- "$conflicts" >&2
                 err "Re-run with --adopt to resolve (DESTRUCTIVE: moves \$HOME files into the repo, overwriting tracked configs)."
                 exit 1
             fi
@@ -440,45 +205,7 @@ else
     warn "stow not found, skipping dotfile linking."
 fi
 
-
-# ============================================================
-# Post-stow seeding
-# ============================================================
-# --- sketchybar compiled helpers ---
-# Compiled, not interpreted: `swift <file>` on a trivial script measured 1.25s,
-# which is not pollable. Binaries are written next to the stowed source, which
-# lands in $HOME rather than in the repo because stow runs --no-folding (helpers/
-# is a real directory containing symlinks). Both callers (mic.sh, system.sh)
-# rebuild on demand too, so a `git pull` that changes a source doesn't need a
-# re-run of this script.
-#
-# THREE-WAY GUARD, DELIBERATELY. An earlier version tested
-# `[[ -r $src ]] && command -v swiftc` in one condition, which meant a MISSING
-# SOURCE was indistinguishable from a missing toolchain and both exited silently
-# — no ok, no warn, nothing. thermal.swift was untracked in git for a while, and
-# a fresh clone would have produced a bar with no temperature and no explanation.
-# Distinguish the three outcomes so absence is loud.
-build_sb_helper() {
-    local name=$1 what=$2
-    local src="${HOME}/.config/sketchybar/helpers/${name}.swift"
-
-    if [[ ! -r $src ]]; then
-        warn "sketchybar ${name} helper source missing at ${src}; ${what}"
-    elif ! command -v swiftc &>/dev/null; then
-        warn "swiftc not found, so the sketchybar ${name} helper was not built; ${what}"
-    elif swiftc -O -o "${src:h}/${name}" "$src" 2>/dev/null; then
-        ok "sketchybar ${name} helper built."
-    else
-        warn "sketchybar ${name} helper failed to build; ${what}"
-    fi
-}
-
-build_sb_helper mic     "the mic item will stay hidden."
-build_sb_helper thermal "the temperature will be omitted from the system island."
-
 # --- btop theme ---
-# btop.conf is machine-local (btop rewrites it on every exit) so it isn't tracked.
-# Seed just the theme on fresh installs; existing configs are left untouched.
 if command -v btop &>/dev/null; then
     btop_conf="${HOME}/.config/btop/btop.conf"
     if [[ ! -f $btop_conf ]]; then
@@ -486,6 +213,137 @@ if command -v btop &>/dev/null; then
         print 'color_theme = "catppuccin_frappe"' > "$btop_conf"
         ok "btop theme seeded (catppuccin_frappe)."
     fi
+fi
+
+
+# ============================================================
+# Oh My Zsh
+# ============================================================
+if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
+    if ask "Install Oh My Zsh?"; then
+        info "Installing Oh My Zsh..."
+
+        if omz_bootstrap=$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh); then
+            sh -c "$omz_bootstrap" "" --unattended --keep-zshrc \
+                || warn "Oh My Zsh installer exited non-zero, continuing..."
+        else
+            warn "Could not download the Oh My Zsh installer, continuing..."
+        fi
+
+        if [[ -d ${HOME}/.oh-my-zsh ]]; then
+            ok "Oh My Zsh installed."
+        else
+            warn "Oh My Zsh is still absent; its theme and plugins will be skipped."
+        fi
+    fi
+fi
+
+
+# ============================================================
+# Oh My Zsh theme & plugins
+# ============================================================
+ZSH_CUSTOM=${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}
+
+omz_clone() {
+    local kind=$1 name=$2 url=$3
+    [[ -d ${HOME}/.oh-my-zsh ]] || return 0
+    [[ -d ${ZSH_CUSTOM}/${kind}/${name} ]] && return 0
+    ask "Install oh-my-zsh ${kind%s} '${name}'?" || return 0
+    git clone --depth=1 "$url" "${ZSH_CUSTOM}/${kind}/${name}" \
+        || { warn "Failed to clone ${name}, continuing..."; return 0 }
+    ok "${name} installed."
+}
+
+omz_clone themes  powerlevel10k           https://github.com/romkatv/powerlevel10k.git
+omz_clone plugins fzf-tab                 https://github.com/Aloxaf/fzf-tab.git
+omz_clone plugins zsh-autosuggestions     https://github.com/zsh-users/zsh-autosuggestions.git
+omz_clone plugins zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting.git
+
+
+# ============================================================
+# macOS defaults
+# ============================================================
+
+# --- Finder ---
+if ask "Apply macOS Finder defaults?"; then
+    defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+    defaults write com.apple.finder ShowPathbar -bool true
+    defaults write com.apple.finder ShowStatusBar -bool true
+    defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
+    defaults write com.apple.finder _FXSortFoldersFirst -bool true
+    # Opaque four-letter codes: Nlsv is list view, SCcf is "search the current
+    # folder" rather than the whole Mac.
+    defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
+    defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+    # No .DS_Store on network or USB volumes. Applies only to volumes mounted
+    # after this runs — anything already mounted keeps littering until remount.
+    defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+    defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
+    # Can carry restricted flags; unguarded this aborts the run under `set -e`.
+    chflags nohidden ~/Library || warn "Could not unhide ~/Library, continuing..."
+    killall Finder 2>/dev/null || true
+    ok "Finder defaults applied."
+fi
+
+# --- Gatekeeper ---
+if ask_insecure "SECURITY: disable the Gatekeeper 'downloaded from the internet' warning?"; then
+    defaults write com.apple.LaunchServices LSQuarantine -bool false
+    warn "LSQuarantine disabled — macOS will no longer warn on first-run of downloaded apps."
+fi
+
+# --- Dock ---
+if ask "Apply macOS Dock defaults?"; then
+    defaults write com.apple.dock minimize-to-application -bool true
+    defaults write com.apple.dock show-recents -bool false
+    defaults write com.apple.dock mru-spaces -bool false          # don't reorder Spaces by recent use
+    defaults write com.apple.dock expose-animation-duration -float 0.1
+    # Magnification pinned off so tilesize is the only size the Dock renders at.
+    defaults write com.apple.dock tilesize -int 52
+    defaults write com.apple.dock magnification -bool false
+    killall Dock 2>/dev/null || true
+    ok "Dock defaults applied."
+fi
+
+# --- Keyboard ---
+if ask "Apply macOS keyboard defaults?"; then
+    # 15ms ticks, below the System Settings floor of 2. Applies after re-login.
+    defaults write NSGlobalDomain KeyRepeat -float 1.5
+    # Delay before repeat kicks in — 12 is 180ms, below the UI "Short" minimum (15).
+    defaults write NSGlobalDomain InitialKeyRepeat -int 12
+    # All off — smart quotes and dashes corrupt code on paste.
+    defaults write NSGlobalDomain NSAutoCorrectionEnabled -bool false
+    defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+    defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+    defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
+    defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
+    defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+    # Tab reaches every UI control, not just text fields and lists.
+    defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
+    # Off means a held key repeats instead of opening the accent picker, which
+    # is what makes the repeat rates above apply everywhere.
+    defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
+    ok "Keyboard defaults applied."
+fi
+
+# --- Screenshots ---
+if ask "Apply macOS screenshot defaults?"; then
+    defaults write com.apple.screencapture location -string "${HOME}/Pictures/Screenshots"
+    mkdir -p ${HOME}/Pictures/Screenshots
+    defaults write com.apple.screencapture disable-shadow -bool true
+    defaults write com.apple.screencapture type -string "png"
+    killall SystemUIServer 2>/dev/null || true
+    ok "Screenshot defaults applied."
+fi
+
+# --- Misc power-user ---
+if ask "Apply miscellaneous power-user defaults?"; then
+    # Save and print panels open expanded. Both keys are needed: the bare name
+    # is the legacy one, the "2" suffix is what current macOS actually reads.
+    defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
+    defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
+    defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
+    defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
+    ok "Miscellaneous defaults applied."
 fi
 
 ok "All done!"

@@ -1,20 +1,10 @@
 # ============================================================
 # Taps
 # ============================================================
-# Must precede any formula or cask that comes from them. The install script
-# walks this file top-to-bottom, so taps listed here are added first, and it
-# also grants each one trust — Homebrew 6+ refuses to load from an untrusted
-# third-party tap, and `brew tap` alone does not grant that.
-#
-# Keep this list minimal: every tap is a third party you're trusting to run
-# install code. Prefer homebrew-core whenever it carries the package.
-tap "isen-ng/dotnet-sdk-versions"   # provides dotnet-sdk10
+# Must precede their packages — install walks this file top to bottom, and
+# grants each trust (Homebrew 6+ won't load an untrusted tap). Prefer core.
 tap "azure/functions"               # provides azure-functions-core-tools@4
 tap "azure/bicep"                   # provides bicep
-tap "azure/kubelogin"               # provides Azure's kubelogin (see note below)
-tap "nikitabobko/tap"               # provides aerospace
-tap "FelixKratz/formulae"           # provides borders (not in homebrew-core)
-
 
 # ============================================================
 # Formulae
@@ -26,58 +16,55 @@ brew "git"
 brew "neovim"
 
 # --- Modern CLI replacements ---
-brew "ripgrep"
-brew "fd"
 brew "bat"
-brew "eza"
-brew "fzf"
-brew "jq"
-brew "zoxide"
-brew "media-control"
-
-# --- Utilities ---
-brew "fastfetch"
-brew "btop"
 brew "dust"
-brew "yq"
+brew "eza"
+brew "fd"
+brew "ripgrep"
+brew "zoxide"
+
+# --- Shell utilities ---
+brew "direnv"
+brew "fzf"
 brew "tealdeer"
 brew "tree"
-brew "marp-cli"                     # Markdown -> slide decks
 
-# --- Git & dev tools ---
+# --- Data processing ---
+brew "jq"
+brew "yq"
+
+# --- System monitoring ---
+brew "btop"
+brew "fastfetch"
+
+# --- Git ---
 brew "gh"
 brew "git-delta"
 brew "lazygit"
+
+# --- Containers ---
+brew "docker"
+brew "docker-compose"
 brew "lazydocker"
-brew "shellcheck"
 
 # --- Languages & runtimes ---
-brew "direnv"
-brew "node"
-brew "pnpm"
+brew "mise"
 brew "elixir"
 brew "elm"
+brew "node"
+brew "pnpm"
 brew "powershell"
 
 # --- Azure ---
 brew "azure-cli"
-brew "azd"
+brew "azure-dev"
 brew "azure-functions-core-tools@4"
 brew "azurite"
 brew "bicep"
 
-# --- Containers & Kubernetes ---
-# CLI only. The docker-desktop cask below supplies the daemon and GUI; its own
-# CLI stays inside the app bundle, so these don't collide.
-brew "docker"
-brew "docker-compose"
-brew "kubectl"                      # alias; the real formula is kubernetes-cli
-brew "helm"
-brew "k9s"
-brew "azure/kubelogin/kubelogin"
-
-# --- AI ---
-brew "ollama"
+# --- Authoring & linting ---
+brew "marp-cli"
+brew "shellcheck"
 
 
 # ============================================================
@@ -89,47 +76,39 @@ cask "font-fira-code-nerd-font"
 cask "font-fira-sans"
 
 # --- Terminal & editors ---
-cask "kitty"
-cask "visual-studio-code"
+cask "ghostty"
 cask "jetbrains-toolbox"
+cask "visual-studio-code"
 
 # --- Dev tooling ---
-cask "dotnet-sdk10"
-cask "docker-desktop"
+cask "dotnet-sdk"
+cask "orbstack"
 cask "yaak"
+
+# --- Windows compatibility ---
+cask "crossover"
 
 # --- AI ---
 cask "claude"
 cask "claude-code@latest"
-cask "codex"
 cask "copilot-cli"
 
 # --- Notes & productivity ---
 cask "obsidian"
-cask "raycast"
 
 # --- Browsers & media ---
 cask "google-chrome"
 cask "iina"
-cask "discord"
 
-# --- Remote access ---
+# --- Communication & remote access ---
+cask "discord"
 cask "teamviewer"
 
-# --- Window management ---
-cask "aerospace"
-brew "borders"
-brew "sketchybar"
-brew "ical-buddy"
-
 # --- System & hardware ---
-cask "macs-fan-control"
-brew "macmon"
-cask "monitorcontrol"
-cask "logi-options+"
 cask "focusrite-control-2"
+cask "logi-options+"
+cask "macs-fan-control"
+cask "monitorcontrol"
 cask "onyx"
 cask "philips-hue-sync"
-
-# --- Games ---
-cask "steam"
+cask "thaw"

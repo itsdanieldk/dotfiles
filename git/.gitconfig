@@ -13,8 +13,6 @@
 # ============================================================
 # Core & pager
 # ============================================================
-# delta is the pager. This [delta] section is the single source of truth —
-# lazygit invokes bare `delta`, which reads these settings itself.
 [core]
     editor = nvim
     pager = delta
@@ -50,8 +48,6 @@
 # ============================================================
 # Object integrity
 # ============================================================
-# Verify objects on the way in and out; catches corruption and some classes of
-# malicious history. Costs a little time on large fetches.
 [transfer]
     fsckobjects = true
 [receive]
@@ -108,8 +104,5 @@
 # ============================================================
 # Conditional includes
 # ============================================================
-# Work identity for any repo under ~/work/, overriding the [user] block above.
-# Must stay last. 'gitdir/i' is the case-insensitive form — required on macOS,
-# where the filesystem is case-insensitive and ~/Work would otherwise miss.
 [includeIf "gitdir/i:~/work/"]
     path = ~/.config/git/config-work

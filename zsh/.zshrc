@@ -10,26 +10,24 @@ fi
 # ============================================================
 # Environment
 # ============================================================
+typeset -U path PATH
+
 export ZSH="$HOME/.oh-my-zsh"
 [[ -d "$HOME/.aspire/bin" ]] && export PATH="$HOME/.aspire/bin:$PATH"
 
-# LANG only — LC_ALL would override every LC_* category and block per-category
-# overrides (LC_TIME, LC_COLLATE, ...) from ever taking effect.
 export LANG=en_US.UTF-8
 
 
 # ============================================================
 # Oh My Zsh
 # ============================================================
-ZSH_THEME="robbyrussell"
+ZSH_THEME="powerlevel10k/powerlevel10k"
 HIST_STAMPS="dd.mm.yyyy"
 
-# Docker CLI completions. fpath must be extended before oh-my-zsh.sh is
-# sourced, since OMZ runs compinit during that source.
+# fpath must be extended before the OMZ source below, which runs compinit.
 [[ -d "$HOME/.docker/completions" ]] && fpath=("$HOME/.docker/completions" $fpath)
 
-# Order matters: fzf-tab wraps the completion widget, so it must come before
-# the two plugins that wrap the line editor.
+# fzf-tab wraps the completion widget — must precede the line-editor plugins.
 plugins=(
     git
     macos
@@ -55,8 +53,7 @@ source $ZSH/oh-my-zsh.sh
 zstyle ':completion:*' menu no                                                  # required by fzf-tab
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*' # case-insensitive
 
-# fzf-tab colors and previews. Must come after compinit, which the OMZ source
-# above runs.
+# Must come after compinit, which the OMZ source above runs.
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 zstyle ':fzf-tab:*' switch-group ',' '.'
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always --icons $realpath'
@@ -93,21 +90,6 @@ fi
 alias v="nvim"
 alias vim="nvim"
 
-# Inside kitty, TERM=xterm-kitty is unknown to most remote hosts. 'kitten ssh'
-# ships the terminfo over on connect; outside kitty this stays plain ssh.
-if [[ $TERM == xterm-kitty ]] && command -v kitten >/dev/null; then
-    alias ssh="kitten ssh"
-fi
-
-# Docker (v2 compose syntax)
-alias dc="docker compose"
-alias dcu="docker compose up -d"
-alias dcd="docker compose down"
-alias dcl="docker compose logs -f"
-alias dps="docker ps"
-alias dcb="docker compose build"
-alias dcr="docker compose restart"
-
 # Modern CLI replacements
 alias ls="eza --icons"
 alias ll="eza -la --icons --git"
@@ -138,6 +120,9 @@ export FZF_DEFAULT_OPTS=" \
 --color=selected-bg:#51576d \
 --color=border:#414559,label:#c6d0f5"
 
+# mise (runtime versions)
+command -v mise >/dev/null && eval "$(mise activate zsh)"
+
 # zoxide (smart cd)
 command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
 
@@ -150,17 +135,10 @@ command -v direnv >/dev/null && eval "$(direnv hook zsh)"
 # ============================================================
 # pnpm
 export PNPM_HOME="$HOME/Library/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
+path=($PNPM_HOME $path)
 
 
 # ============================================================
 # Prompt
 # ============================================================
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
-
-# Must stay last: p10k's config leaks 'noaliases', which would otherwise
-# disable every alias defined above.
-setopt aliases
