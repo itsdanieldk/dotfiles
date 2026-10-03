@@ -1,6 +1,6 @@
 ---
 name: dotfiles-check
-description: Verify this dotfiles repo -- zsh syntax check on install, Brewfile parseability against install's actual regex, stow dry-runs for every package, and drift checks for orphan taps, stale .gitignore rules, and a README that no longer matches the tree.
+description: Verify this dotfiles repo -- zsh syntax check on install and the zsh configs, Brewfile parseability against install's actual regex, stow dry-runs for every package, and drift checks for orphan taps, stale .gitignore rules, and a README that no longer matches the tree.
 ---
 
 There is no CI, no linter, and no test suite in this repo. This is the whole verification surface.
@@ -8,16 +8,19 @@ There is no CI, no linter, and no test suite in this repo. This is the whole ver
 Run every check, then report a single grouped summary — do not stop at the first failure.
 **Everything here is read-only or a dry run. Never run the real `stow`, `./install`, or `brew`.**
 
-## 1. install syntax
+## 1. zsh syntax
 
-    zsh -n install
+    zsh -n install zsh/.zshrc zsh/.zprofile zsh/.p10k.zsh
 
-`install` is zsh, not bash — shellcheck cannot parse it, so don't reach for it. A clean exit means
-it parses, not that it is correct.
+A broken `.zshrc` is worse than a broken `install`: it breaks every new terminal. All four are zsh,
+not bash — shellcheck cannot parse them, so don't reach for it. A clean exit means they parse, not
+that they are correct.
 
-Then eyeball for the two traps `set -eu` sets:
+Then eyeball for the three traps `set -eu` sets:
 - A bare `(( ... ))` whose expansion is false returns non-zero and kills the script. It must sit
   inside an `if`, as the Xcode CLT wait loop does.
+- `[[ ... ]] && cmd` as the **last** statement of a function: the function returns non-zero and
+  the call site trips. Anywhere else an AND-OR list is exempt.
 - The Brewfile loop must keep reading from FD 3 (`done 3< ${DOTFILES}/Brewfile`). If it is ever
   changed to plain stdin redirection, `ask()`'s `read -q` starts eating package lines.
 
@@ -39,7 +42,7 @@ is walked top to bottom.
 
 For each non-hidden top-level directory (what `install`'s `*(/)` glob matches):
 
-    stow -d ~/dotfiles --no-folding -n -R <pkg>
+    stow -d ~/dotfiles -t ~ --no-folding -n -R <pkg>
 
 Report conflicts per package. A conflict means `./install` would exit 1.
 
@@ -53,14 +56,17 @@ Two failure modes the dry run alone will not surface. Both have happened here.
 **File in a package never linked.** A package gained a file and was never re-stowed, so the app
 silently falls back to a default. Walk the packages on disk, not `git ls-files`:
 
-    pkgs=(~/dotfiles/*(/))          # non-dotted only, exactly what install globs
-    setopt localoptions globdots nullglob
-    for d in $pkgs; do
-        for f in ${d}/**/*(.); do
-            rel=${f#${d}/}
-            [[ -e "$HOME/$rel" ]] || print "NOT LINKED: ${d:t}/${rel} -> ~/$rel"
+    () {                                # anonymous function, so localoptions actually scopes
+        local pkgs=(~/dotfiles/*(/))    # non-dotted only, exactly what install globs
+        setopt localoptions globdots nullglob
+        for d in $pkgs; do
+            for f in ${d}/**/*(.); do
+                rel=${f#${d}/}
+                # -ef, not -e: also catches an app replacing the symlink with a regular file
+                [[ "$HOME/$rel" -ef $f ]] || print "NOT LINKED: ${d:t}/${rel} -> ~/$rel"
+            done
         done
-    done
+    }
 
 Two traps are baked into that snippet. `git ls-files` sees only *tracked* files, so it cannot catch
 a deliberately untracked one — `git/.config/git/config-work` is exactly that, and a tracked-only
@@ -74,7 +80,8 @@ This check is what missed `nvim/.config/nvim/colors/catppuccin-frappe.lua`, whic
 **Dangling links left by a removed package.** stow only unlinks what the package still contains, so
 deleting files from a package strands their links:
 
-    find ~/.config -type l ! -exec test -e {} \; -print
+    find ~ -maxdepth 1 -type l ! -exec test -e {} \; -print
+    find ~/.config ~/.ssh ~/.claude -type l ! -exec test -e {} \; -print
 
 Report both. Neither is fatal; both mean the tree and `$HOME` disagree.
 
@@ -94,15 +101,20 @@ Also confirm nothing sensitive slipped in — keys, `known_hosts`, `.credentials
 - **Brewfile vs. what is actually installed.** The Brewfile claims to be the source of truth, so
   check it both ways — but **the two directions need different sources**, which is easy to get wrong:
 
-  - *Installed but not declared* → compare against **`brew leaves`**. Never `brew list --formula`:
-    that includes every transitive dependency (~100 entries here) and reports dozens of phantoms.
-  - *Declared but not installed* → compare against **`brew list --formula`**. Using `brew leaves`
-    here is also wrong, in the opposite direction: a declared formula that something else depends on
-    (here `node`, pulled in by `azurite` and `marp-cli`) is installed but is not a leaf, so it would
-    be reported as missing when it is present.
+  - *Installed but not declared* → compare against formulae **installed on request**. Never
+    `brew list --formula`: that includes every transitive dependency (~100 entries here) and reports
+    dozens of phantoms. Not plain `brew leaves` either: it also lists orphaned dependencies (whose
+    fix is `autoremove`, not declaring them) and misses a hand-installed formula that something
+    else happens to depend on.
+  - *Declared but not installed* → compare against **`brew list --formula`**. An on-request or leaf
+    list is wrong here, in the opposite direction: a declared formula that something else pulled in
+    first (here `node`, via `azurite` and `marp-cli`) is installed but not marked on-request, so it
+    would be reported as missing when it is present.
+  - *Orphans* → `brew autoremove --dry-run`. Dependencies nothing needs any more; report them
+    separately, since the fix is removal.
 
-  Strip tap prefixes before comparing, since `brew leaves` prints a tapped formula fully qualified
-  (`owner/tap/name`) where the Brewfile declares the bare name.
+  The `.name` field is the bare name, so tapped formulae need no prefix stripping; `brew list`
+  already prints bare names.
 
   A mismatch here is also how an **alias** shows up: an entry declared under an alias appears in
   *both* directions at once — missing under the alias, undeclared under the canonical name. That is
@@ -110,8 +122,11 @@ Also confirm nothing sensitive slipped in — keys, `known_hosts`, `.credentials
   to `azure-dev`. Confirm with `brew info --formula --json=v2 <name> | jq -r '.formulae[0].name'`.
 
       declared=$(grep -oE '^brew "[^"]+"' Brewfile | cut -d'"' -f2 | sed 's|.*/||' | sort -u)
-      comm -13 <(echo "$declared") <(brew leaves | sed 's|.*/||' | sort -u)          # undeclared
-      comm -23 <(echo "$declared") <(brew list --formula | sed 's|.*/||' | sort -u)  # missing
+      on_request=$(brew info --json=v2 --installed \
+          | jq -r '.formulae[] | select(any(.installed[]; .installed_on_request)) | .name' | sort -u)
+      comm -13 <(echo "$declared") <(echo "$on_request")                  # undeclared
+      comm -23 <(echo "$declared") <(brew list --formula | sort -u)       # missing
+      brew autoremove --dry-run                                           # orphans
 
   Casks have no dependency graph, so `brew list --cask` is correct for both directions there.
   Report both ways: undeclared installs mean the Brewfile no longer rebuilds the machine;

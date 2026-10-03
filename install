@@ -8,11 +8,13 @@ set -eu
 setopt pipefail
 
 DOTFILES=${0:A:h}
+export HOMEBREW_NO_ANALYTICS=1  # .zprofile isn't linked yet on a fresh machine
 
 autoload -U colors && colors
 info()  { print -P "%F{blue}[INFO]%f  $1" }
 ok()    { print -P "%F{green}[OK]%f    $1" }
-warn()  { print -P "%F{yellow}[WARN]%f  $1" }
+typeset -a warnings=()
+warn()  { print -P "%F{yellow}[WARN]%f  $1"; warnings+=("$1") }  # replayed before "All done!"
 err()   { print -P "%F{red}[ERROR]%f $1" }
 
 
@@ -137,7 +139,7 @@ brew_needs_trust() {
 handle_tap() {
     local pkg=$1
     if brew tap | grep -qxF -- "$pkg"; then
-        brew_needs_trust "$pkg" || { info "tap '${pkg}' already added and trusted, skipping."; return 0 }
+        brew_needs_trust "$pkg" || { info "tap '${pkg}' already added, skipping."; return 0 }
         ask "Tap '${pkg}' is added but NOT trusted — trust it?" \
             || { warn "${pkg} left untrusted; its formulae will fail to install."; return 0 }
         brew trust --tap "$pkg" || warn "Failed to trust ${pkg}, continuing..."
@@ -186,12 +188,12 @@ if command -v stow &>/dev/null; then
     if ask "Stow dotfiles?"; then
         for dir in ${DOTFILES}/*(/); do
             pkg=${dir:t}
-            if conflicts=$(stow -d ${DOTFILES} --no-folding -n -R ${pkg} 2>&1); then
-                stow -d ${DOTFILES} --no-folding -R ${pkg}
+            if conflicts=$(stow -d ${DOTFILES} -t ${HOME} --no-folding -n -R ${pkg} 2>&1); then
+                stow -d ${DOTFILES} -t ${HOME} --no-folding -R ${pkg}
                 ok "${pkg} stowed."
             elif $ALLOW_ADOPT; then
                 warn "${pkg} has conflicts; --adopt set, resolving..."
-                stow -d ${DOTFILES} --no-folding --adopt -R ${pkg}
+                stow -d ${DOTFILES} -t ${HOME} --no-folding --adopt -R ${pkg}
                 warn "Adopted ${pkg}: review 'git diff' for clobbered tracked files."
             else
                 err "${pkg} has conflicts with files in \$HOME."
@@ -297,9 +299,9 @@ if ask "Apply macOS Dock defaults?"; then
     defaults write com.apple.dock show-recents -bool false
     defaults write com.apple.dock mru-spaces -bool false          # don't reorder Spaces by recent use
     defaults write com.apple.dock expose-animation-duration -float 0.1
-    # Magnification pinned off so tilesize is the only size the Dock renders at.
-    defaults write com.apple.dock tilesize -int 52
-    defaults write com.apple.dock magnification -bool false
+    defaults write com.apple.dock tilesize -int 64
+    defaults write com.apple.dock magnification -bool true
+    defaults write com.apple.dock largesize -int 106
     killall Dock 2>/dev/null || true
     ok "Dock defaults applied."
 fi
@@ -344,6 +346,11 @@ if ask "Apply miscellaneous power-user defaults?"; then
     defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
     defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
     ok "Miscellaneous defaults applied."
+fi
+
+if (( ${#warnings} )); then
+    print -P "%F{yellow}[WARN]%f  ${#warnings} warning(s) this run:"  # not warn(): it appends
+    for w in $warnings; do print -P "        - $w"; done
 fi
 
 ok "All done!"

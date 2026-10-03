@@ -48,7 +48,7 @@ plugins, macOS defaults. A btop theme seed runs unprompted after stow, only if t
 - **It's zsh, not bash** — `read -q`, `print`, `*(/)`; syntax-check with `zsh -n install`, never shellcheck
 - **Stow runs before Oh My Zsh** — OMZ's `--keep-zshrc` only protects a `~/.zshrc` that already exists, so on a clean machine it would write its own template and the stow step would then die on the conflict
 - **One prompt weakens a security control** — it disables the Gatekeeper "downloaded from the internet" warning (`LSQuarantine`). Answer `N` to keep it; `--yes` declines it automatically
-- **Upstreams are unpinned** — both bootstraps, Powerlevel10k and the plugins track a default branch, so a compromised upstream runs as your user. Both bootstraps verify the download before running it. Install Homebrew and Oh My Zsh yourself first if you'd rather not take the trade; `install` skips both when present
+- **Upstreams are unpinned** — both bootstraps, Powerlevel10k and the plugins track a default branch, so a compromised upstream runs as your user. Both bootstraps are downloaded in full before running, so a truncated download never executes, but nothing checks their integrity. Install Homebrew and Oh My Zsh yourself first if you'd rather not take the trade; `install` skips both when present
 - **Failures warn rather than abort** — only an unknown flag (exit 2), a stow conflict (exit 1) and a non-arm64 machine (exit 3) stop the run
 
 ## Packages
@@ -59,7 +59,7 @@ plugins, macOS defaults. A btop theme seed runs unprompted after stow, only if t
 | `btop` | btop theme — `install` seeds `color_theme` separately, because btop rewrites its own config on exit and would write through the symlink |
 | `claude` | Claude Code settings and statusline |
 | `ghostty` | Ghostty terminal (Fira Code Nerd Font Mono) |
-| `git` | `.gitconfig` with the delta pager, plus the global gitignore. Repos under `~/work/` use a separate identity from an untracked `config-work`; git ignores the `includeIf` when it's absent |
+| `git` | `.gitconfig` with the delta pager and the Git LFS filter, plus the global gitignore. Repos under `~/work/` use a separate identity from an untracked `config-work`; git ignores the `includeIf` when it's absent |
 | `hushlogin` | Suppresses the "Last login" message |
 | `lazygit` | lazygit config (delta diff renderer) |
 | `nvim` | Neovim — zero plugins, no lockfile; `init.lua` and a vendored colorscheme |
@@ -92,11 +92,11 @@ and `azure/bicep`, each granted trust as it's added and each kept above the pack
 | Shell utilities | `direnv`, `fzf`, `tealdeer`, `tree` |
 | Data processing | `jq`, `yq` |
 | System monitoring | `btop`, `fastfetch` |
-| Git | `gh`, `git-delta`, `lazygit` |
+| Git | `gh`, `git-delta`, `git-lfs`, `lazygit` |
 | Containers | `docker`, `docker-compose`, `lazydocker` |
 | Languages & runtimes | `mise`, `elixir`, `elm`, `node`, `pnpm`, `powershell` — `mise` owns the project node; `node` is declared only because `azurite` and `marp-cli` depend on it |
 | Azure | `azure-cli`, `azure-dev`, `azure-functions-core-tools@4`, `azurite`, `bicep` |
-| Authoring & linting | `marp-cli`, `shellcheck` |
+| Authoring & linting | `actionlint`, `marp-cli`, `shellcheck` |
 
 | Group | Casks |
 |-------|-------|
@@ -107,8 +107,9 @@ and `azure/bicep`, each granted trust as it's added and each kept above the pack
 | AI | Claude, Claude Code, Copilot CLI |
 | Notes & productivity | Obsidian |
 | Browsers & media | Chrome, IINA |
+| Games | Battle.net, Steam |
 | Communication & remote access | Discord, TeamViewer |
-| System & hardware | Focusrite Control 2, logi-options+, macs-fan-control, MonitorControl, OnyX, Philips Hue Sync, Thaw |
+| System & hardware | Focusrite Control 2, iStat Menus, logi-options+, MonitorControl, OnyX, Philips Hue Sync, Thaw |
 
 ## macOS Defaults
 
@@ -116,7 +117,7 @@ Five groups, each prompted separately — plus the Gatekeeper prompt above, whic
 Finder and Dock:
 
 - **Finder** — extensions, path and status bars, list view, folders on top, search scoped to the current folder, visible `~/Library`, no `.DS_Store` on network or USB volumes
-- **Dock** — minimize into the app icon, no recents, fixed tile size with magnification off, Spaces stay put, faster Mission Control
+- **Dock** — minimize into the app icon, no recents, 64px tiles magnifying to 106px, Spaces stay put, faster Mission Control
 - **Keyboard** — key repeat faster than the sliders can express (`KeyRepeat=1.5`, `InitialKeyRepeat=12`, in 15 ms ticks), every text substitution off because smart quotes corrupt pasted code, full keyboard access. Takes effect after a logout
 - **Screenshots** — PNGs to `~/Pictures/Screenshots`, no drop shadow
 - **Miscellaneous** — save and print panels expanded by default
@@ -136,22 +137,20 @@ Finder and Dock:
 These reach anything launched from a shell that sourced `.zprofile` — including VS Code's integrated
 terminal, but not apps launched from Finder. `brew analytics off` is the persistent equivalent.
 
-Two outbound calls aren't covered, both from the vendored
-[`statusline.sh`](https://github.com/daniel3303/ClaudeCodeStatusLine), on every statusline render.
+The vendored [`statusline.sh`](https://github.com/daniel3303/ClaudeCodeStatusLine) makes two
+outbound calls on statusline renders; only the first is live.
 
 | Call | Frequency | Notes |
 |------|-----------|-------|
 | `api.anthropic.com/api/oauth/usage` | ≤ every 60s, cached | Your usage quota. Sends an OAuth token from the Keychain, passed to `curl` via `--config` on stdin so it never shows in `ps` |
-| `api.github.com/.../releases/latest` | ≤ every 24h, cached | Upstream update check. Disable with `STATUSLINE_CHECK_UPDATES=false` |
+| `api.github.com/.../releases/latest` | ≤ every 24h, cached | Upstream update check. **Off** — `STATUSLINE_CHECK_UPDATES=false` in `claude/.claude/settings.json`'s `env`, which reaches the statusline however Claude Code was launched |
 
-Only the update check is switchable — the usage call is what the statusline exists to display. It
-inherits Claude Code's environment, so `.zprofile` covers a shell-launched Claude Code but not one
-started from Finder; use `launchctl setenv` for that.
+The usage call stays: it is what the statusline exists to display.
 
 ## Gotchas
 
-- **A new file in an existing package needs a re-stow** — `stow -d ~/dotfiles --no-folding -R <package>`. Editing an existing file takes effect immediately; adding one does nothing until you re-stow
-- **Apps rewrite their own stowed configs** — the write goes through the symlink and lands as an unexplained modification in `git status`. lazygit did it renaming `git.pagers`; OrbStack did it twice. Check `git status` after installing anything that manages its own config
+- **A new file in an existing package needs a re-stow** — `stow -d ~/dotfiles -t ~ --no-folding -R <package>`. Editing an existing file takes effect immediately; adding one does nothing until you re-stow
+- **Apps rewrite their own stowed configs** — the write goes through the symlink and lands as an unexplained modification in `git status`. lazygit did it renaming `git.pagers`; OrbStack did it twice; Claude Code does it on every `/model` and `/effort`, rewriting `model` and `modelSettings` in `claude/.claude/settings.json`. Check `git status` after installing anything that manages its own config
 - **`.zshrc` load order is load-bearing** — p10k's instant prompt first with nothing writing to stdout before it, and `fzf-tab` before `zsh-autosuggestions` and `zsh-syntax-highlighting`, or completion and highlighting break without saying so
 - **The Brewfile is read from FD 3** — `ask()`'s `read -q` consumes stdin, so a plain `< Brewfile` makes every prompt eat the next line and silently skip packages
 - **Two ignore files, different scopes** — `/.gitignore` is allowlist-based, so a tracked file added to `ssh/` or `claude/` needs a matching `!` line or git never sees it; `git/.config/git/ignore` applies to **every** repo on the machine. Neither has trailing-comment syntax

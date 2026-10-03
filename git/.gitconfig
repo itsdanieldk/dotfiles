@@ -42,16 +42,13 @@
 [fetch]
     prune = true
     prunetags = true
-    fsckobjects = true
 
 
 # ============================================================
 # Object integrity
 # ============================================================
 [transfer]
-    fsckobjects = true
-[receive]
-    fsckobjects = true
+    fsckobjects = true  # covers fetch and receive too
 
 
 # ============================================================
@@ -99,6 +96,16 @@
     today = "!git log --since=midnight --author=\"$(git config user.name)\" --oneline"
     amend = commit --amend --no-edit
     recent = branch --sort=-committerdate --format='%(committerdate:relative)%09%(refname:short)'
+
+
+# ============================================================
+# Git LFS
+# ============================================================
+[filter "lfs"]
+    clean = git-lfs clean -- %f
+    smudge = git-lfs smudge -- %f
+    process = git-lfs filter-process
+    required = true
 
 
 # ============================================================

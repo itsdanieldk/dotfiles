@@ -56,10 +56,10 @@ zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*' 
 # Must come after compinit, which the OMZ source above runs.
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 zstyle ':fzf-tab:*' switch-group ',' '.'
-zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always --icons $realpath'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always --icons=always $realpath'
 zstyle ':fzf-tab:complete:*:*' fzf-preview \
     'bat --color=always --style=numbers --line-range=:200 $realpath 2>/dev/null \
-     || eza -1 --color=always --icons $realpath 2>/dev/null'
+     || eza -1 --color=always --icons=always $realpath 2>/dev/null'
 
 
 # ============================================================
@@ -91,9 +91,9 @@ alias v="nvim"
 alias vim="nvim"
 
 # Modern CLI replacements
-alias ls="eza --icons"
-alias ll="eza -la --icons --git"
-alias lt="eza --tree --icons --level=2"
+alias ls="eza --icons=auto"  # =WHEN required: a bare --icons swallows the next argument
+alias ll="eza -la --icons=auto --git"
+alias lt="eza --tree --icons=auto --level=2"
 alias cat="bat --paging=never --style=plain"
 alias lg="lazygit"
 alias ld="lazydocker"

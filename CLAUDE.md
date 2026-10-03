@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Never run git write operations** — no commit, push, stash, branch, staging, or history rewriting —
 unless asked in that message. The user drives git. Reading (`git status`, `git diff`, `git log`) is fine.
 
-The working tree currently carries a large uncommitted refactor. Don't assume `HEAD` matches disk.
+Don't assume `HEAD`, the index and disk match — the user often stages selectively.
 
 
 # ============================================================
@@ -33,7 +33,8 @@ that isn't a real `$HOME` path.
   the repo and apps write secrets and runtime state straight into git.
 - **Adding a new file to an existing package requires a re-stow.** Editing an existing file takes
   effect immediately; a new one does not. Tell the user to run
-  `stow -d ~/dotfiles --no-folding -R <package>`.
+  `stow -d ~/dotfiles -t ~ --no-folding -R <package>`. `install` passes `-t ${HOME}` explicitly:
+  stow's default target is the parent of `-d`, which is only `~` when the clone sits directly in it.
 - Any new **non-hidden** top-level directory is auto-treated as a stow package: the loop globs
   `${DOTFILES}/*(/)`, which does **not** match dotted directories, so `.claude/` (repo tooling, not
   a `$HOME` config) is invisible to it and needs no exclusion. There is no exclusion list: repo
@@ -50,7 +51,7 @@ Do not resurrect them or reference them in new work.
 # ============================================================
 
 `install` is `#!/usr/bin/env zsh` and uses zsh-only syntax (`read -q`, `print -P`, `$match[]`,
-`${0:A:h}`, `*(/)`, `${array[(Ie)x]}`). shellcheck cannot parse it. Header is `set -eu` +
+`${0:A:h}`, `*(/)`, `${+assoc[key]}`). shellcheck cannot parse it. Header is `set -eu` +
 `setopt pipefail` — zsh's `set` has no `-o pipefail`.
 
 Syntax-check with:
@@ -70,9 +71,10 @@ Non-obvious internals, all load-bearing:
 - `set -e` and false conditionals, measured rather than assumed. A **bare** `(( ... ))` or
   `[[ ... ]]` statement that evaluates false returns non-zero and kills the script — keep those
   inside an `if`, as the Xcode CLT wait loop does. But as the left side of an AND-OR list
-  (`(( ... )) && cmd`, `[[ ... ]] || return 0`) it is exempt, which is why `install:171` is correct
-  as written. The one shape to avoid is `[[ ... ]] && cmd` as the **last** statement of a function:
-  the function returns non-zero and the *call site* trips.
+  (`(( ... )) && cmd`, `[[ ... ]] || return 0`) it is exempt, which is why the Brewfile loop's
+  `(( ${+installed[...]} )) && { ...; continue }` is correct as written. The one shape to avoid
+  is `[[ ... ]] && cmd` as the **last** statement of a function: the function returns non-zero
+  and the *call site* trips.
 - **Stow runs before Oh My Zsh, and must stay there.** OMZ's `--keep-zshrc` only protects a
   `~/.zshrc` that already exists; with none linked it writes its own template there, and the stow
   step then dies on the conflict — on every fresh machine. Stowing first makes `~/.zshrc` a symlink,
@@ -152,15 +154,16 @@ and kills every alias. `.zshrc` used to carry a `setopt aliases` workaround for 
 root cause is fixed, so it is gone — do not reintroduce it.
 
 **`zsh/.zprofile`** — `typeset -U path PATH` first (the file appends on every login shell; without
-dedupe, entries accumulate). Telemetry opt-outs before `brew shellenv`. `.zshrc` declares
+dedupe, entries accumulate). `.zshrc` declares
 `typeset -U` too, because the attribute is shell-local and a non-login interactive shell never
 sources `.zprofile`.
 
 **`ssh/.ssh/config`** — first match wins. Two `Include`s at the top: `~/.ssh/config.local` first so
 local overrides win, then OrbStack's (which defines only `Host orb`). Both must precede `Host *`,
-which stays last. `KexAlgorithms`/`Ciphers`/`MACs` **replace** the built-in lists rather than extend
-them, so a host offering only older algorithms fails; the fix is a `+`-prefixed value in the
-untracked `~/.ssh/config.local`.
+which stays last. `KexAlgorithms` uses `-` to strip weak entries from the defaults, so OpenSSH's
+post-quantum hybrids stay first — never pin it to an explicit list. `Ciphers`, `MACs` and
+`HostKeyAlgorithms` **replace** the built-in lists, so a host offering only older algorithms fails;
+the fix is a `+`-prefixed value in the untracked `~/.ssh/config.local`.
 
 **`git/.gitconfig`** — the `[includeIf "gitdir/i:~/work/"]` block stays last. `gitdir/i`
 (case-insensitive) is required on macOS's case-insensitive filesystem. The `[delta]` section is the

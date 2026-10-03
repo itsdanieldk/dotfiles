@@ -8,7 +8,6 @@ typeset -U path PATH
 # ============================================================
 # Telemetry
 # ============================================================
-# Must precede the Homebrew block below: `brew shellenv` reads NO_ANALYTICS.
 export DOTNET_CLI_TELEMETRY_OPTOUT=1            # dotnet CLI
 export FUNCTIONS_CORE_TOOLS_TELEMETRY_OPTOUT=1  # Azure Functions Core Tools
 export AZURE_CORE_COLLECT_TELEMETRY=0           # azure-cli

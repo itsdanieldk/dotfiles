@@ -6,13 +6,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in */install) zsh -n \"$f\";; esac; }",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in */install|*/.zshrc|*/.zprofile|*/.p10k.zsh) zsh -n \"$f\" || exit 2;; esac; }",
             "timeout": 20,
-            "statusMessage": "zsh -n install"
+            "statusMessage": "zsh -n"
           },
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in *.sh) command -v shellcheck >/dev/null || exit 0; shellcheck -S warning -e SC1091 \"$f\";; esac; }",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in *.sh) command -v shellcheck >/dev/null || exit 0; shellcheck -S warning -e SC1091 \"$f\" >&2 || exit 2;; esac; }",
             "timeout": 30,
             "statusMessage": "shellcheck"
           }

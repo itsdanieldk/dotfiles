@@ -40,6 +40,7 @@ brew "fastfetch"
 # --- Git ---
 brew "gh"
 brew "git-delta"
+brew "git-lfs"
 brew "lazygit"
 
 # --- Containers ---
@@ -63,6 +64,7 @@ brew "azurite"
 brew "bicep"
 
 # --- Authoring & linting ---
+brew "actionlint"
 brew "marp-cli"
 brew "shellcheck"
 
@@ -100,14 +102,18 @@ cask "obsidian"
 cask "google-chrome"
 cask "iina"
 
+# --- Games ---
+cask "battle-net"
+cask "steam"
+
 # --- Communication & remote access ---
 cask "discord"
 cask "teamviewer"
 
 # --- System & hardware ---
 cask "focusrite-control-2"
+cask "istat-menus"
 cask "logi-options+"
-cask "macs-fan-control"
 cask "monitorcontrol"
 cask "onyx"
 cask "philips-hue-sync"

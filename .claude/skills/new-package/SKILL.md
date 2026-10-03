@@ -1,6 +1,6 @@
 ---
 name: new-package
-description: Scaffold a new GNU stow package in this dotfiles repo — correct $HOME-mirroring directory shape, Brewfile entry, .gitignore allowlist if the app writes state, and README/TODO updates. Use when adding a config for a new tool.
+description: Scaffold a new GNU stow package in this dotfiles repo — correct $HOME-mirroring directory shape, Brewfile entry, .gitignore allowlist if the app writes state, and README updates. Use when adding a config for a new tool.
 disable-model-invocation: true
 ---
 
@@ -28,7 +28,8 @@ Never place a file at the package root unless it is genuinely a dotfile at `$HOM
 
 Write a real, working config — not a stub. Match the repo's house style: `# ====` section banners,
 4-space indent, and terse comments — one line per fact, only where losing it would let a known bug
-back in. Prefer a trailing `# note`. No paragraphs.
+back in. Prefer a trailing `# note` — but only if the format supports one: Ghostty and
+`.gitignore` fold a trailing comment into the value, so check before using it. No paragraphs.
 
 If the tool supports theming, use **Catppuccin Frappé** — it is the palette across ghostty, nvim,
 bat, btop, lazygit, delta, and fzf.
@@ -68,7 +69,7 @@ Add the package to `README.md`'s package list and reconcile anything the additio
 
 Run the dry run only:
 
-    stow -d ~/dotfiles --no-folding -n -R <tool>
+    stow -d ~/dotfiles -t ~ --no-folding -n -R <tool>
 
 Report the result. **Do not run the real `stow`** — the user does that. Remind them the new
 package needs a stow (not just a re-stow of an existing one) before it takes effect.
