@@ -95,14 +95,14 @@ and `azure/bicep`, each granted trust as it's added and each kept above the pack
 | Git | `gh`, `git-delta`, `git-lfs`, `lazygit` |
 | Containers | `docker`, `docker-compose`, `lazydocker` |
 | Languages & runtimes | `mise`, `elixir`, `elm`, `node`, `pnpm`, `powershell` — `mise` owns the project node; `node` is declared only because `azurite` and `marp-cli` depend on it |
-| Azure | `azure-cli`, `azure-dev`, `azure-functions-core-tools@4`, `azurite`, `bicep` |
+| Azure | `azure-dev`, `azure-functions-core-tools@4`, `azurite`, `bicep` |
 | Authoring & linting | `actionlint`, `marp-cli`, `shellcheck` |
 
 | Group | Casks |
 |-------|-------|
 | Fonts | Fira Code Nerd Font, Fira Sans |
 | Terminal & editors | Ghostty, JetBrains Toolbox, VS Code |
-| Dev tooling | .NET SDK, OrbStack, Yaak |
+| Dev tooling | Azure CLI, .NET SDK, OrbStack, Yaak |
 | Windows compatibility | CrossOver — the one entry that still needs Rosetta 2 |
 | AI | Claude, Claude Code, Copilot CLI |
 | Notes & productivity | Obsidian |

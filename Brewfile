@@ -57,7 +57,6 @@ brew "pnpm"
 brew "powershell"
 
 # --- Azure ---
-brew "azure-cli"
 brew "azure-dev"
 brew "azure-functions-core-tools@4"
 brew "azurite"
@@ -83,6 +82,7 @@ cask "jetbrains-toolbox"
 cask "visual-studio-code"
 
 # --- Dev tooling ---
+cask "azure-cli"
 cask "dotnet-sdk"
 cask "orbstack"
 cask "yaak"
