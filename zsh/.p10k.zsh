@@ -28,11 +28,9 @@
     status                  # exit code of last command
     command_execution_time  # duration of last command
     background_jobs         # background job indicator
-    direnv                  # direnv status
     dotnet_version          # .NET version
     node_version            # Node.js version
-    python_env              # Python virtualenv
-    azure                   # Azure account
+    azure                   # Azure account (only while typing az)
     context                 # user@host (SSH only)
   )
 
@@ -114,16 +112,10 @@
   typeset -g POWERLEVEL9K_NODE_VERSION_FOREGROUND=70            # green
   typeset -g POWERLEVEL9K_NODE_VERSION_PROJECT_ONLY=true
 
-  # === Python ===
-  typeset -g POWERLEVEL9K_PYTHON_ENV_FOREGROUND=37
-  typeset -g POWERLEVEL9K_PYTHON_ENV_SHOW_SYSTEM_VENV=false
-
   # === Azure ===
+  typeset -g POWERLEVEL9K_AZURE_SHOW_ON_COMMAND='az'
   typeset -g POWERLEVEL9K_AZURE_FOREGROUND=32
   typeset -g POWERLEVEL9K_AZURE_VISUAL_IDENTIFIER_EXPANSION='󰠅'
-
-  # === direnv ===
-  typeset -g POWERLEVEL9K_DIRENV_FOREGROUND=178
 
   # === Transient Prompt ===
   typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=same-dir            # collapse when staying in same dir

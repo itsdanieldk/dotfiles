@@ -6,72 +6,31 @@ disable-model-invocation: true
 
 Add a stow package for: $ARGUMENTS
 
-Work through these steps in order. Report the plan before writing anything.
+Report the plan before writing anything. CLAUDE.md has the rules for layout, comments, the Brewfile
+and ignores; follow them.
 
-## 1. Find the real config path
+1.  **Find the real config path** relative to `$HOME`, from the tool's docs or `man` page — a wrong
+    path is a symlink nothing reads. Prefer `~/.config/<tool>/` when the tool honours `XDG_CONFIG_HOME`.
+2.  **Create the package**, mirroring `$HOME`:
 
-Determine where the tool actually reads its config from on macOS, as a path relative to `$HOME`.
-Most respect `~/.config/<tool>/`; some insist on `~/.<tool>rc`. Check the tool's docs or
-`man` page rather than guessing — a wrong path produces a symlink nothing ever reads.
+        <tool>/.config/<tool>/<file>  ->  ~/.config/<tool>/<file>
+        <tool>/.<tool>rc              ->  ~/.<tool>rc
 
-If the tool honours `XDG_CONFIG_HOME`, prefer `~/.config/<tool>/` for consistency with the rest
-of the repo.
+    Write a real, working config, not a stub, themed Catppuccin Frappé if the tool supports themes.
+    Check whether the format allows trailing comments before using one.
 
-## 2. Create the package
+3.  **Ignore runtime state.** Under `--no-folding` the directory is real in `$HOME`, so caches,
+    history or credentials the app writes there land in the repo. If it does, add an allowlist block
+    to `/.gitignore` like the `ssh/` and `claude/` ones:
 
-The package directory mirrors `$HOME` exactly:
+        <tool>/.config/<tool>/*
+        !<tool>/.config/<tool>/config
 
-    <tool>/.config/<tool>/<file>      ->  ~/.config/<tool>/<file>
-    <tool>/.<tool>rc                  ->  ~/.<tool>rc
+    If the app rewrites its config on exit (as btop does), track only the stable part and have
+    `install` seed the rest.
 
-Never place a file at the package root unless it is genuinely a dotfile at `$HOME`'s top level.
-
-Write a real, working config — not a stub. Match the repo's house style: `# ====` section banners,
-4-space indent, and terse comments — one line per fact, only where losing it would let a known bug
-back in. Prefer a trailing `# note` — but only if the format supports one: Ghostty and
-`.gitignore` fold a trailing comment into the value, so check before using it. No paragraphs.
-
-If the tool supports theming, use **Catppuccin Frappé** — it is the palette across ghostty, nvim,
-bat, btop, lazygit, delta, and fzf.
-
-## 3. Decide whether it needs a .gitignore allowlist
-
-Does the app write runtime state, caches, credentials, or history into that same directory?
-Because stow runs `--no-folding`, the directory is real in `$HOME` and the app can drop files
-straight into the repo.
-
-If yes, add an allowlist block to `/.gitignore` following the existing `ssh/` and `claude/`
-pattern — ignore everything, then re-include only the tracked files:
-
-    <tool>/.config/<tool>/*
-    !<tool>/.config/<tool>/config
-
-If the app rewrites its config on exit (as btop does), track only the parts that are stable and
-have `install` seed the rest.
-
-## 4. Brewfile entry
-
-Add the tool under the correct existing `# --- Section ---` heading in `Brewfile`, matching the
-exact parseable form — `install` uses a hand-rolled regex, not `brew bundle`:
-
-    brew "name"
-    cask "name"
-
-Prefer homebrew-core. If it requires a tap, add the `tap "..."` line in the Taps block **above**
-the package, and say so explicitly in your report — each tap is a third party trusted to run
-install code, and the user should get to weigh that.
-
-## 5. Update the docs
-
-Add the package to `README.md`'s package list and reconcile anything the addition contradicts.
-
-## 6. Verify, don't stow
-
-Run the dry run only:
-
-    stow -d ~/dotfiles -t ~ --no-folding -n -R <tool>
-
-Report the result. **Do not run the real `stow`** — the user does that. Remind them the new
-package needs a stow (not just a re-stow of an existing one) before it takes effect.
-
-If `install` gained anything, finish with `zsh -n install`.
+4.  **Add it to the Brewfile** under the right `# --- Section ---`, by canonical name. If it needs a
+    tap, say so explicitly — the user should weigh trusting a third party.
+5.  **Add a row to the README's package table.**
+6.  **Verify, don't stow:** `stow -d ~/dotfiles -t ~ --no-folding -n -R <tool>`, plus `zsh -n install`
+    if `install` changed. Remind the user that a new package needs a stow before it takes effect.

@@ -1,8 +1,9 @@
 {
-  "model": "opus",
   "env": {
-    "STATUSLINE_CHECK_UPDATES": "false"
+    "STATUSLINE_CHECK_UPDATES": "false",
+    "DISABLE_TELEMETRY": "1"
   },
+  "model": "opus",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
@@ -17,9 +18,16 @@
   "modelSettings": {
     "claude-opus-5-5": {
       "effortLevel": "xhigh"
+    },
+    "claude-sonnet-5-5": {
+      "effortLevel": "xhigh"
+    },
+    "claude-fable-5-2": {
+      "effortLevel": "xhigh"
     }
   },
   "tui": "fullscreen",
+  "skipWorkflowUsageWarning": true,
   "theme": "auto",
   "agentPushNotifEnabled": true
 }

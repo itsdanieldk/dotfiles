@@ -10,7 +10,6 @@ setopt pipefail
 DOTFILES=${0:A:h}
 export HOMEBREW_NO_ANALYTICS=1  # .zprofile isn't linked yet on a fresh machine
 
-autoload -U colors && colors
 info()  { print -P "%F{blue}[INFO]%f  $1" }
 ok()    { print -P "%F{green}[OK]%f    $1" }
 typeset -a warnings=()
@@ -31,14 +30,14 @@ for arg in "$@"; do
         --adopt)         ALLOW_ADOPT=true ;;
         --allow-insecure) ALLOW_INSECURE=true ;;
         -h|--help)
-            print "Usage: ./install [--yes|-y] [--adopt] [--allow-insecure]"
-            print "  --yes             Non-interactive (auto-yes to all prompts EXCEPT the"
-            print "                    security-weakening ones, which are skipped instead)."
-            print "                    A fresh-machine run needs sudo primed first"
-            print "                    ('sudo -v'): Homebrew's installer uses 'sudo -n' here."
-            print "  --adopt           Allow stow --adopt on conflict (DESTRUCTIVE: moves \$HOME files into the repo)"
-            print "  --allow-insecure  Also auto-yes the prompts that WEAKEN a security control."
-            print "                    Only meaningful together with --yes."
+            print -r -- "Usage: ./install [--yes|-y] [--adopt] [--allow-insecure]
+  --yes             Non-interactive (auto-yes to all prompts EXCEPT the
+                    security-weakening ones, which are skipped instead).
+                    A fresh-machine run needs sudo primed first
+                    ('sudo -v'): Homebrew's installer uses 'sudo -n' here.
+  --adopt           Allow stow --adopt on conflict (DESTRUCTIVE: moves \$HOME files into the repo)
+  --allow-insecure  Also auto-yes the prompts that WEAKEN a security control.
+                    Only meaningful together with --yes."
             exit 0
             ;;
         *) err "Unknown flag: $arg"; exit 2 ;;
@@ -121,8 +120,7 @@ if ! command -v brew &>/dev/null; then
 fi
 
 if command -v brew &>/dev/null && [[ $(brew --prefix) != /opt/homebrew ]]; then
-    warn "brew resolves to $(brew --prefix), not the arm64 prefix /opt/homebrew."
-    warn "That is an Intel/Rosetta Homebrew — its bottles will be x86_64."
+    warn "brew resolves to $(brew --prefix), not /opt/homebrew: an Intel/Rosetta Homebrew, so its bottles will be x86_64."
 fi
 
 
@@ -130,25 +128,23 @@ fi
 # Brewfile packages
 # ============================================================
 brew_needs_trust() {
-    brew trust --help &>/dev/null || return 1
-    command -v jq &>/dev/null || return 1
-    brew trust --json v1 2>/dev/null | jq -e --arg t "$1" '.taps | index($t)' >/dev/null && return 1
-    return 0
+    brew trust --help &>/dev/null && command -v jq &>/dev/null || return 1
+    ! brew trust --json v1 2>/dev/null | jq -e --arg t "$1" '.taps | index($t)' >/dev/null
 }
 
 handle_tap() {
-    local pkg=$1
-    if brew tap | grep -qxF -- "$pkg"; then
-        brew_needs_trust "$pkg" || { info "tap '${pkg}' already added, skipping."; return 0 }
-        ask "Tap '${pkg}' is added but NOT trusted — trust it?" \
-            || { warn "${pkg} left untrusted; its formulae will fail to install."; return 0 }
-        brew trust --tap "$pkg" || warn "Failed to trust ${pkg}, continuing..."
+    local tap=$1
+    if ! brew tap | grep -qxF -- "$tap"; then
+        ask "Add and trust tap '${tap}'?" || return 0
+        brew tap "$tap" || { warn "Failed to tap ${tap}, continuing..."; return 0 }
+    elif ! brew_needs_trust "$tap"; then
+        info "tap '${tap}' already added, skipping."
         return 0
+    else
+        ask "Tap '${tap}' is added but NOT trusted — trust it?" \
+            || { warn "${tap} left untrusted; its formulae will fail to install."; return 0 }
     fi
-    ask "Add and trust tap '${pkg}'?" || return 0
-    brew tap "$pkg" || { warn "Failed to tap ${pkg}, continuing..."; return 0 }
-    brew trust --tap "$pkg" || warn "Tapped ${pkg} but failed to trust it; its formulae will fail to install."
-    return 0
+    brew trust --tap "$tap" || warn "Failed to trust ${tap}; its formulae will fail to install."
 }
 
 typeset -A brew_flag=(brew --formula cask --cask)
@@ -159,17 +155,15 @@ if command -v brew &>/dev/null; then
     for p in ${(f)"$(brew list --cask 2>/dev/null)"};    do installed[cask:$p]=1; done
 
     while IFS= read -r line <&3; do
-        [[ -z $line || $line == \#* ]] && continue
         [[ $line =~ '^(brew|cask|tap)[[:space:]]+"([^"]+)"' ]] || continue
         type=$match[1] pkg=$match[2]
         if [[ $type == tap ]]; then
             handle_tap "$pkg"
             continue
         fi
-        flag=${brew_flag[$type]}
         (( ${+installed[$type:${pkg:t}]} )) && { info "'${pkg}' already installed, skipping."; continue }
         ask "Install ${type} '${pkg}'?" || continue
-        brew install $flag "$pkg" || warn "Failed to install ${pkg}, continuing..."
+        brew install ${brew_flag[$type]} "$pkg" || warn "Failed to install ${pkg}, continuing..."
     done 3< ${DOTFILES}/Brewfile
 
     if command -v tldr &>/dev/null; then
@@ -184,16 +178,18 @@ fi
 # ============================================================
 # Must precede Oh My Zsh: its --keep-zshrc only protects an EXISTING ~/.zshrc,
 # so with none linked yet it writes its template there and this step conflicts.
+stow_pkg() { stow -d ${DOTFILES} -t ${HOME} --no-folding "$@" }
+
 if command -v stow &>/dev/null; then
     if ask "Stow dotfiles?"; then
         for dir in ${DOTFILES}/*(/); do
             pkg=${dir:t}
-            if conflicts=$(stow -d ${DOTFILES} -t ${HOME} --no-folding -n -R ${pkg} 2>&1); then
-                stow -d ${DOTFILES} -t ${HOME} --no-folding -R ${pkg}
+            if conflicts=$(stow_pkg -n -R ${pkg} 2>&1); then
+                stow_pkg -R ${pkg}
                 ok "${pkg} stowed."
             elif $ALLOW_ADOPT; then
                 warn "${pkg} has conflicts; --adopt set, resolving..."
-                stow -d ${DOTFILES} -t ${HOME} --no-folding --adopt -R ${pkg}
+                stow_pkg --adopt -R ${pkg}
                 warn "Adopted ${pkg}: review 'git diff' for clobbered tracked files."
             else
                 err "${pkg} has conflicts with files in \$HOME."
@@ -240,10 +236,7 @@ if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
     fi
 fi
 
-
-# ============================================================
-# Oh My Zsh theme & plugins
-# ============================================================
+# --- Theme & plugins ---
 ZSH_CUSTOM=${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}
 
 omz_clone() {
@@ -313,12 +306,11 @@ if ask "Apply macOS keyboard defaults?"; then
     # Delay before repeat kicks in — 12 is 180ms, below the UI "Short" minimum (15).
     defaults write NSGlobalDomain InitialKeyRepeat -int 12
     # All off — smart quotes and dashes corrupt code on paste.
-    defaults write NSGlobalDomain NSAutoCorrectionEnabled -bool false
-    defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
-    defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
-    defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
-    defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
-    defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+    for key in NSAutoCorrectionEnabled NSAutomaticQuoteSubstitutionEnabled \
+               NSAutomaticDashSubstitutionEnabled NSAutomaticCapitalizationEnabled \
+               NSAutomaticPeriodSubstitutionEnabled NSAutomaticSpellingCorrectionEnabled; do
+        defaults write NSGlobalDomain $key -bool false
+    done
     # Tab reaches every UI control, not just text fields and lists.
     defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
     # Off means a held key repeats instead of opening the accent picker, which
@@ -341,10 +333,9 @@ fi
 if ask "Apply miscellaneous power-user defaults?"; then
     # Save and print panels open expanded. Both keys are needed: the bare name
     # is the legacy one, the "2" suffix is what current macOS actually reads.
-    defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
-    defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
-    defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
-    defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
+    for key in NSNavPanelExpandedStateForSaveMode{,2} PMPrintingExpandedStateForPrint{,2}; do
+        defaults write NSGlobalDomain $key -bool true
+    done
     ok "Miscellaneous defaults applied."
 fi
 

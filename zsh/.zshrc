@@ -13,7 +13,6 @@ fi
 typeset -U path PATH
 
 export ZSH="$HOME/.oh-my-zsh"
-[[ -d "$HOME/.aspire/bin" ]] && export PATH="$HOME/.aspire/bin:$PATH"
 
 export LANG=en_US.UTF-8
 
@@ -24,9 +23,6 @@ export LANG=en_US.UTF-8
 ZSH_THEME="powerlevel10k/powerlevel10k"
 HIST_STAMPS="dd.mm.yyyy"
 
-# fpath must be extended before the OMZ source below, which runs compinit.
-[[ -d "$HOME/.docker/completions" ]] && fpath=("$HOME/.docker/completions" $fpath)
-
 # fzf-tab wraps the completion widget — must precede the line-editor plugins.
 plugins=(
     git
@@ -36,9 +32,7 @@ plugins=(
     copypath
     copyfile
     colored-man-pages
-    docker
     dotnet
-    aliases
     fzf-tab
     zsh-autosuggestions
     zsh-syntax-highlighting
@@ -50,11 +44,12 @@ source $ZSH/oh-my-zsh.sh
 # ============================================================
 # Completion
 # ============================================================
-zstyle ':completion:*' menu no                                                  # required by fzf-tab
+zstyle ':completion:*:*:*:*:*' menu no                                          # fzf-tab; OMZ's menu select uses this exact pattern
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*' # case-insensitive
 
 # Must come after compinit, which the OMZ source above runs.
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+zstyle ':completion:*:descriptions' format '[%d]'  # fzf-tab groups need it; switch-group is dead without
 zstyle ':fzf-tab:*' switch-group ',' '.'
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always --icons=always $realpath'
 zstyle ':fzf-tab:complete:*:*' fzf-preview \
@@ -70,18 +65,12 @@ HISTSIZE=100000
 SAVEHIST=100000
 setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_REDUCE_BLANKS
-setopt SHARE_HISTORY
-setopt HIST_IGNORE_SPACE
 
 
 # ============================================================
 # Editor
 # ============================================================
-if [[ -n $SSH_CONNECTION ]]; then
-    export EDITOR='vim'
-else
-    export EDITOR='nvim'
-fi
+export EDITOR=nvim VISUAL=nvim
 
 
 # ============================================================
@@ -96,7 +85,7 @@ alias ll="eza -la --icons=auto --git"
 alias lt="eza --tree --icons=auto --level=2"
 alias cat="bat --paging=never --style=plain"
 alias lg="lazygit"
-alias ld="lazydocker"
+alias lzd="lazydocker"  # not ld: that shadows the system linker
 
 # History search
 alias hs='history 1 | grep --color=auto'
@@ -111,7 +100,7 @@ export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
 export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:500 {}'"
-export FZF_CTRL_R_OPTS="--reverse --preview 'echo {}' --preview-window up:3:hidden:wrap --bind 'ctrl-y:execute-silent(echo -n {2..} | pbcopy)+abort' --header 'Press CTRL-Y to copy command to clipboard'"
+export FZF_CTRL_R_OPTS="--reverse --bind 'ctrl-y:execute-silent(echo -n {2..} | pbcopy)+abort' --header 'Press CTRL-Y to copy command to clipboard'"
 # Catppuccin Frappe palette for fzf
 export FZF_DEFAULT_OPTS=" \
 --color=bg+:#414559,bg:#303446,spinner:#f2d5cf,hl:#e78284 \
@@ -125,9 +114,6 @@ command -v mise >/dev/null && eval "$(mise activate zsh)"
 
 # zoxide (smart cd)
 command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
-
-# direnv (per-directory env)
-command -v direnv >/dev/null && eval "$(direnv hook zsh)"
 
 
 # ============================================================

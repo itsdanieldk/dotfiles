@@ -9,16 +9,18 @@ typeset -U path PATH
 # Telemetry
 # ============================================================
 export DOTNET_CLI_TELEMETRY_OPTOUT=1            # dotnet CLI
-export FUNCTIONS_CORE_TOOLS_TELEMETRY_OPTOUT=1  # Azure Functions Core Tools
 export AZURE_CORE_COLLECT_TELEMETRY=0           # azure-cli
-export AZURE_DEV_COLLECT_TELEMETRY=no           # azd
 export HOMEBREW_NO_ANALYTICS=1                  # Homebrew
+export GH_TELEMETRY=0                           # gh
 
 
 # ============================================================
 # Homebrew
 # ============================================================
 [[ -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+
+# Keg-only: a fresh install leaves psql/pg_dump unlinked.
+[[ -d /opt/homebrew/opt/postgresql@17/bin ]] && path=(/opt/homebrew/opt/postgresql@17/bin $path)
 
 
 # ============================================================

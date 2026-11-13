@@ -6,8 +6,9 @@
 [user]
     email = hey@itsdaniel.dk
     name = itsdanieldk
-[credential]
-    helper = osxkeychain
+    signingkey = ~/.ssh/id_ed25519  # private-key path: signs via the agent, prompts only if the agent lacks it
+[gpg]
+    format = ssh
 
 
 # ============================================================
@@ -39,6 +40,7 @@
     followTags = true
 [commit]
     verbose = true
+    gpgsign = true
 [fetch]
     prune = true
     prunetags = true
@@ -61,6 +63,7 @@
     autoupdate = true
 [rebase]
     autoStash = true
+    autoSquash = true
     updateRefs = true
 
 
@@ -82,6 +85,7 @@
     sort = -committerdate
 [tag]
     sort = -version:refname
+    gpgSign = true
 [column]
     ui = auto
 

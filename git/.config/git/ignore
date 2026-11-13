@@ -4,61 +4,29 @@
 # Every repo on this machine. Machine/editor state only — build artifacts
 # belong in the project's. No trailing comments: they become part of the pattern.
 
-
-# ============================================================
-# macOS
-# ============================================================
-# Finder's per-folder view settings.
+# --- macOS ---
 .DS_Store
-# Resource-fork sidecar directory left by AFP shares.
 .AppleDouble
-# Launch Services icon/handler override.
 .LSOverride
-# Resource-fork sidecars written on non-Apple filesystems.
 ._*
-# Spotlight index, at the root of a volume.
 .Spotlight-V100
-# Per-volume trash directory.
 .Trashes
 
-
-# ============================================================
-# Claude Code
-# ============================================================
-# Per-project machine-local settings — never shared.
+# --- Claude Code ---
 **/.claude/settings.local.json
 # Scratch directory Claude Code writes into a project while working.
 **/.claude/.cc-writes/
-# Personal per-project instructions, loaded alongside CLAUDE.md.
 CLAUDE.local.md
 
-
-# ============================================================
-# IDE / Editor
-# ============================================================
-# Visual Studio's per-solution cache.
+# --- IDE / editor ---
 .vs/
-# JetBrains project state (Rider, IntelliJ).
 .idea/
-# Ionide — F# support for VS Code.
 .ionide/
 # Local History extension only; the rest of .vscode/ is shared team config.
 .vscode/.history/
 
-
-# ============================================================
-# Tooling
-# ============================================================
-# direnv's cache — .envrc itself is often committed.
-.direnv/
-
-
-# ============================================================
-# .NET
-# ============================================================
-# Per-user project settings; also covers Rider's *.DotSettings.user.
+# --- .NET ---
+# Also covers Rider's *.DotSettings.user.
 *.user
-# Visual Studio solution user options.
 *.suo
-# FAKE — F# Make build cache.
 .fake/

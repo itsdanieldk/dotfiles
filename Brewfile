@@ -1,10 +1,8 @@
 # ============================================================
 # Taps
 # ============================================================
-# Must precede their packages — install walks this file top to bottom, and
-# grants each trust (Homebrew 6+ won't load an untrusted tap). Prefer core.
-tap "azure/functions"               # provides azure-functions-core-tools@4
-tap "azure/bicep"                   # provides bicep
+# Must precede their packages: install walks this file top to bottom and trusts each tap as it's added.
+tap "gigalixir/brew"                # provides gigalixir
 
 # ============================================================
 # Formulae
@@ -14,6 +12,7 @@ tap "azure/bicep"                   # provides bicep
 brew "stow"
 brew "git"
 brew "neovim"
+brew "tree-sitter-cli"              # nvim-treesitter compiles parsers with it
 
 # --- Modern CLI replacements ---
 brew "bat"
@@ -24,7 +23,6 @@ brew "ripgrep"
 brew "zoxide"
 
 # --- Shell utilities ---
-brew "direnv"
 brew "fzf"
 brew "tealdeer"
 brew "tree"
@@ -39,31 +37,30 @@ brew "fastfetch"
 
 # --- Git ---
 brew "gh"
+brew "git-absorb"
 brew "git-delta"
 brew "git-lfs"
 brew "lazygit"
 
 # --- Containers ---
-brew "docker"
-brew "docker-compose"
+# No brew docker/docker-compose: OrbStack ships both plus buildx, and brew's would shadow them.
 brew "lazydocker"
 
 # --- Languages & runtimes ---
 brew "mise"
 brew "elixir"
 brew "elm"
-brew "node"
 brew "pnpm"
-brew "powershell"
 
-# --- Azure ---
-brew "azure-dev"
-brew "azure-functions-core-tools@4"
-brew "azurite"
-brew "bicep"
+# --- Databases ---
+brew "postgresql@17"                # keg-only; .zprofile puts its bin on PATH
+
+# --- Hosting ---
+brew "gigalixir"
 
 # --- Authoring & linting ---
 brew "actionlint"
+brew "gitleaks"
 brew "marp-cli"
 brew "shellcheck"
 
@@ -93,10 +90,6 @@ cask "crossover"
 # --- AI ---
 cask "claude"
 cask "claude-code@latest"
-cask "copilot-cli"
-
-# --- Notes & productivity ---
-cask "obsidian"
 
 # --- Browsers & media ---
 cask "google-chrome"
@@ -104,6 +97,7 @@ cask "iina"
 
 # --- Games ---
 cask "battle-net"
+cask "curseforge"
 cask "steam"
 
 # --- Communication & remote access ---
@@ -112,8 +106,8 @@ cask "teamviewer"
 
 # --- System & hardware ---
 cask "focusrite-control-2"
-cask "istat-menus"
 cask "logi-options+"
+cask "macs-fan-control"
 cask "monitorcontrol"
 cask "onyx"
 cask "philips-hue-sync"
