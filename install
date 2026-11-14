@@ -266,10 +266,19 @@ if ask "Apply macOS Finder defaults?"; then
     defaults write com.apple.finder ShowStatusBar -bool true
     defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
     defaults write com.apple.finder _FXSortFoldersFirst -bool true
+    defaults write com.apple.finder _FXSortFoldersFirstOnDesktop -bool true
+    defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+    defaults write com.apple.finder ShowRecentTags -bool false
+    defaults write com.apple.finder FXRemoveOldTrashItems -bool true    # empty the Trash after 30 days
     # Opaque four-letter codes: Nlsv is list view, SCcf is "search the current
-    # folder" rather than the whole Mac.
+    # folder" rather than the whole Mac, PfHm opens new windows on the home folder.
     defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
     defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+    defaults write com.apple.finder NewWindowTarget -string "PfHm"
+    for key in ShowHardDrivesOnDesktop ShowExternalHardDrivesOnDesktop \
+               ShowRemovableMediaOnDesktop ShowMountedServersOnDesktop; do
+        defaults write com.apple.finder $key -bool false
+    done
     # No .DS_Store on network or USB volumes. Applies only to volumes mounted
     # after this runs — anything already mounted keeps littering until remount.
     defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
@@ -277,7 +286,7 @@ if ask "Apply macOS Finder defaults?"; then
     # Can carry restricted flags; unguarded this aborts the run under `set -e`.
     chflags nohidden ~/Library || warn "Could not unhide ~/Library, continuing..."
     killall Finder 2>/dev/null || true
-    ok "Finder defaults applied."
+    ok "Finder: extensions, path and status bars shown, list view with folders first, new windows at home, an empty desktop, and the Trash empties after 30 days."
 fi
 
 # --- Gatekeeper ---
@@ -286,17 +295,23 @@ if ask_insecure "SECURITY: disable the Gatekeeper 'downloaded from the internet'
     warn "LSQuarantine disabled — macOS will no longer warn on first-run of downloaded apps."
 fi
 
-# --- Dock ---
-if ask "Apply macOS Dock defaults?"; then
+# --- Desktop & Dock ---
+if ask "Apply macOS Desktop & Dock defaults?"; then
     defaults write com.apple.dock minimize-to-application -bool true
     defaults write com.apple.dock show-recents -bool false
     defaults write com.apple.dock mru-spaces -bool false          # don't reorder Spaces by recent use
     defaults write com.apple.dock expose-animation-duration -float 0.1
-    defaults write com.apple.dock tilesize -int 64
+    defaults write com.apple.dock tilesize -int 46
     defaults write com.apple.dock magnification -bool true
     defaults write com.apple.dock largesize -int 106
+    defaults write com.apple.dock wvous-br-corner -int 1          # bottom-right hot corner off; macOS ships Quick Note
+    defaults write com.apple.dock wvous-br-modifier -int 0
+    defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false  # wallpaper click keeps windows
+    defaults write com.apple.WindowManager EnableTiledWindowMargins -bool false
+    defaults write com.apple.WindowManager StandardHideDesktopIcons -bool true
+    defaults write com.apple.WindowManager HideDesktop -bool true
     killall Dock 2>/dev/null || true
-    ok "Dock defaults applied."
+    ok "Desktop & Dock: 46 px tiles magnifying to 106 px, no recent apps, Spaces keep their order, no Quick Note hot corner, and clicking the wallpaper no longer hides windows."
 fi
 
 # --- Keyboard ---
@@ -308,25 +323,31 @@ if ask "Apply macOS keyboard defaults?"; then
     # All off — smart quotes and dashes corrupt code on paste.
     for key in NSAutoCorrectionEnabled NSAutomaticQuoteSubstitutionEnabled \
                NSAutomaticDashSubstitutionEnabled NSAutomaticCapitalizationEnabled \
-               NSAutomaticPeriodSubstitutionEnabled NSAutomaticSpellingCorrectionEnabled; do
+               NSAutomaticPeriodSubstitutionEnabled NSAutomaticSpellingCorrectionEnabled \
+               WebAutomaticSpellingCorrectionEnabled; do
         defaults write NSGlobalDomain $key -bool false
     done
+    defaults write com.apple.HIToolbox AppleFnUsageType -int 0    # Globe key does nothing
     # Tab reaches every UI control, not just text fields and lists.
     defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
     # Off means a held key repeats instead of opening the accent picker, which
     # is what makes the repeat rates above apply everywhere.
     defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
-    ok "Keyboard defaults applied."
+    ok "Keyboard: faster key repeat, no autocorrect or smart quotes, Tab reaches every control, and the Globe key does nothing. Log out for key repeat to take effect."
 fi
 
 # --- Screenshots ---
 if ask "Apply macOS screenshot defaults?"; then
-    defaults write com.apple.screencapture location -string "${HOME}/Pictures/Screenshots"
+    # Screenshots go to the clipboard; screen recordings are saved as files.
+    defaults write com.apple.screencapture target -string "clipboard"
+    defaults write com.apple.screencapture target-screenshot -string "clipboard"
+    defaults write com.apple.screencapture target-screenrecording -string "file"
+    defaults write com.apple.screencapture location-screenrecording -string "${HOME}/Pictures/Screenshots"
     mkdir -p ${HOME}/Pictures/Screenshots
     defaults write com.apple.screencapture disable-shadow -bool true
     defaults write com.apple.screencapture type -string "png"
     killall SystemUIServer 2>/dev/null || true
-    ok "Screenshot defaults applied."
+    ok "Screenshots: copied to the clipboard without a shadow; screen recordings are saved to ~/Pictures/Screenshots."
 fi
 
 # --- Misc power-user ---
@@ -336,7 +357,15 @@ if ask "Apply miscellaneous power-user defaults?"; then
     for key in NSNavPanelExpandedStateForSaveMode{,2} PMPrintingExpandedStateForPrint{,2}; do
         defaults write NSGlobalDomain $key -bool true
     done
-    ok "Miscellaneous defaults applied."
+    defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+    # Horizontal scroll (the MX Master's thumb wheel) doesn't swipe back/forward.
+    defaults write NSGlobalDomain AppleEnableSwipeNavigateWithScrolls -bool false
+    defaults write com.apple.menuextra.clock ShowSeconds -bool true
+    defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool true
+    defaults write com.apple.TextEdit RichText -int 0 2>/dev/null \
+        || warn "TextEdit is sandboxed: set Format → Plain Text in its settings, or give the terminal Full Disk Access."
+    killall ControlCenter 2>/dev/null || true      # redraws the menu-bar clock
+    ok "Miscellaneous: save and print dialogs open expanded, new documents save locally instead of to iCloud, seconds show in the clock, and Time Machine stops asking about new disks."
 fi
 
 if (( ${#warnings} )); then

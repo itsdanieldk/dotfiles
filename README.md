@@ -62,11 +62,11 @@ turn. The only third-party tap is `gigalixir/brew`.
 
 ## macOS defaults
 
-- **Finder** — extensions, path and status bars, list view, folders first, search in the current folder, visible `~/Library`, no `.DS_Store` on network or USB volumes
-- **Dock** — no recents, 64 px tiles magnifying to 106 px, Spaces keep their order
-- **Keyboard** — key repeat faster than System Settings allows, text substitutions off, full keyboard access
-- **Screenshots** — PNG to `~/Pictures/Screenshots`, no shadow
-- **Panels** — save and print dialogs open expanded
+- **Finder** — extensions, path and status bars, full path in the title, list view, folders first, search in the current folder, new windows at home, nothing on the desktop, Trash emptied after 30 days, visible `~/Library`, no `.DS_Store` on network or USB volumes
+- **Desktop & Dock** — no recents, 46 px tiles magnifying to 106 px, Spaces keep their order, no Quick Note hot corner, wallpaper click doesn't hide windows, no tiling margins
+- **Keyboard** — key repeat faster than System Settings allows, text substitutions off, full keyboard access, Globe key does nothing
+- **Screenshots** — to the clipboard, no shadow; recordings saved to `~/Pictures/Screenshots`
+- **Miscellaneous** — save and print dialogs expanded, new documents saved locally rather than to iCloud, no swipe navigation on horizontal scroll, seconds in the menu-bar clock, no Time Machine prompts for new disks, plain-text TextEdit
 
 ## Privacy
 
