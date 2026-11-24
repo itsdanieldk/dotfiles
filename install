@@ -10,11 +10,12 @@ setopt pipefail
 DOTFILES=${0:A:h}
 export HOMEBREW_NO_ANALYTICS=1  # .zprofile isn't linked yet on a fresh machine
 
-info()  { print -P "%F{blue}[INFO]%f  $1" }
-ok()    { print -P "%F{green}[OK]%f    $1" }
+# ${1//\%/%%}: print -P would expand a % in a package or profile name.
+info()  { print -P "%F{blue}[INFO]%f  ${1//\%/%%}" }
+ok()    { print -P "%F{green}[OK]%f    ${1//\%/%%}" }
 typeset -a warnings=()
-warn()  { print -P "%F{yellow}[WARN]%f  $1"; warnings+=("$1") }  # replayed before "All done!"
-err()   { print -P "%F{red}[ERROR]%f $1" }
+warn()  { print -P "%F{yellow}[WARN]%f  ${1//\%/%%}"; warnings+=("$1") }  # replayed before "All done!"
+err()   { print -P "%F{red}[ERROR]%f ${1//\%/%%}" }
 
 
 # ============================================================
@@ -23,21 +24,25 @@ err()   { print -P "%F{red}[ERROR]%f $1" }
 AUTOYES=false
 ALLOW_ADOPT=false
 ALLOW_INSECURE=false
+PROFILE=""
 
 for arg in "$@"; do
     case $arg in
         --yes|-y)        AUTOYES=true ;;
         --adopt)         ALLOW_ADOPT=true ;;
         --allow-insecure) ALLOW_INSECURE=true ;;
+        --profile=?*)    PROFILE=${arg#--profile=} ;;
         -h|--help)
-            print -r -- "Usage: ./install [--yes|-y] [--adopt] [--allow-insecure]
+            print -r -- "Usage: ./install [--yes|-y] [--adopt] [--allow-insecure] [--profile=NAME]
   --yes             Non-interactive (auto-yes to all prompts EXCEPT the
                     security-weakening ones, which are skipped instead).
                     A fresh-machine run needs sudo primed first
                     ('sudo -v'): Homebrew's installer uses 'sudo -n' here.
   --adopt           Allow stow --adopt on conflict (DESTRUCTIVE: moves \$HOME files into the repo)
   --allow-insecure  Also auto-yes the prompts that WEAKEN a security control.
-                    Only meaningful together with --yes."
+                    Only meaningful together with --yes.
+  --profile=NAME    Also install Brewfile.NAME (e.g. personal). Remembered in
+                    ~/.config/dotfiles/profile, so later runs need no flag."
             exit 0
             ;;
         *) err "Unknown flag: $arg"; exit 2 ;;
@@ -134,7 +139,7 @@ brew_needs_trust() {
 
 handle_tap() {
     local tap=$1
-    if ! brew tap | grep -qxF -- "$tap"; then
+    if (( ! ${${(f)"$(brew tap)"}[(Ie)$tap]} )); then  # not grep -q: under pipefail its early exit SIGPIPEs brew
         ask "Add and trust tap '${tap}'?" || return 0
         brew tap "$tap" || { warn "Failed to tap ${tap}, continuing..."; return 0 }
     elif ! brew_needs_trust "$tap"; then
@@ -148,23 +153,92 @@ handle_tap() {
 }
 
 typeset -A brew_flag=(brew --formula cask --cask)
+typeset -A tool=(mas mas vscode code)
+
+# mas and code can be installed by this same loop, so their lists load on first use.
+load_installed() {
+    local p
+    case $1 in
+        mas)    for p in ${(f)"$(mas list 2>/dev/null)"}; do installed[mas:${${=p}[1]}]=1; done ;;
+        vscode) for p in ${(f)"$(code --list-extensions 2>/dev/null)"}; do installed[vscode:${p:l}]=1; done ;;
+    esac
+    loaded[$1]=1
+}
+
+# FD 3, not stdin: ask()'s read -q would otherwise eat package lines.
+install_brewfile() {
+    local line type pkg id key
+    while IFS= read -r line <&3; do
+        [[ $line =~ '^(brew|cask|tap|mas|vscode)[[:space:]]+"([^"]+)"(,[[:space:]]*id:[[:space:]]*([0-9]+))?' ]] || continue
+        type=$match[1] pkg=$match[2] id=${match[4]-} key=$match[1]:${match[2]:t}
+        case $type in
+            tap)
+                handle_tap "$pkg"
+                continue
+                ;;
+            mas|vscode)
+                if ! command -v ${tool[$type]} &>/dev/null; then
+                    (( ${+loaded[$type]} )) || warn "${tool[$type]} not found, skipping ${type} entries."
+                    loaded[$type]=1
+                    continue
+                fi
+                (( ${+loaded[$type]} )) || load_installed $type
+                [[ $type == mas ]] && key=mas:$id || key=vscode:${pkg:l}
+                ;;
+        esac
+        (( ${+installed[$key]} )) && { info "'${pkg}' already installed, skipping."; continue }
+        ask "Install ${type} '${pkg}'?" || continue
+        case $type in
+            brew|cask) brew install ${brew_flag[$type]} "$pkg" ;;
+            mas)       mas install "$id" ;;
+            vscode)    code --install-extension "$pkg" ;;
+        esac && installed[$key]=1 || warn "Failed to install ${pkg}, continuing..."  # a later duplicate is skipped
+    done 3< $1
+}
+
+# --- Profile ---
+# Brewfile is shared; Brewfile.<profile> and the untracked Brewfile.local add to it, read in that order.
+profile_file=${HOME}/.config/dotfiles/profile
+if [[ -z $PROFILE && -e $profile_file ]]; then
+    PROFILE=$(<$profile_file)
+elif [[ -z $PROFILE ]]; then
+    if $AUTOYES; then
+        warn "No profile set: installing the shared Brewfile only. Re-run with --profile=NAME."
+    else
+        profiles=(${DOTFILES}/Brewfile.*(N:e))
+        read -r "PROFILE?Profile for this Mac (have: ${(j:, :)${profiles:#local}}; blank for shared only): " || PROFILE=""
+    fi
+fi
+if [[ -n $PROFILE && ( ! $PROFILE =~ '^[a-z0-9-]+$' || $PROFILE == local ) ]]; then  # local: Brewfile.local is read anyway
+    warn "Ignoring invalid profile '${PROFILE}'."
+    PROFILE=""
+fi
+if ! $AUTOYES || [[ -n $PROFILE ]]; then
+    mkdir -p ${profile_file:h}
+    print -r -- $PROFILE > $profile_file  # blank too, so a shared-only Mac isn't asked again
+fi
+
+brewfiles=(${DOTFILES}/Brewfile)
+if [[ -n $PROFILE ]]; then
+    if [[ -f ${DOTFILES}/Brewfile.${PROFILE} ]]; then
+        brewfiles+=(${DOTFILES}/Brewfile.${PROFILE})
+    else
+        info "No Brewfile.${PROFILE}; profile '${PROFILE}' adds no packages."
+    fi
+fi
+if [[ -f ${DOTFILES}/Brewfile.local ]]; then
+    brewfiles+=(${DOTFILES}/Brewfile.local)
+fi
 
 if command -v brew &>/dev/null; then
-    typeset -A installed
+    typeset -A installed loaded  # loaded: list read, or tool missing and already warned
     for p in ${(f)"$(brew list --formula 2>/dev/null)"}; do installed[brew:$p]=1; done
     for p in ${(f)"$(brew list --cask 2>/dev/null)"};    do installed[cask:$p]=1; done
 
-    while IFS= read -r line <&3; do
-        [[ $line =~ '^(brew|cask|tap)[[:space:]]+"([^"]+)"' ]] || continue
-        type=$match[1] pkg=$match[2]
-        if [[ $type == tap ]]; then
-            handle_tap "$pkg"
-            continue
-        fi
-        (( ${+installed[$type:${pkg:t}]} )) && { info "'${pkg}' already installed, skipping."; continue }
-        ask "Install ${type} '${pkg}'?" || continue
-        brew install ${brew_flag[$type]} "$pkg" || warn "Failed to install ${pkg}, continuing..."
-    done 3< ${DOTFILES}/Brewfile
+    for brewfile in $brewfiles; do
+        info "Reading ${brewfile:t}..."
+        install_brewfile $brewfile
+    done
 
     if command -v tldr &>/dev/null; then
         info "Updating tldr cache..."
@@ -176,8 +250,6 @@ fi
 # ============================================================
 # Stow
 # ============================================================
-# Must precede Oh My Zsh: its --keep-zshrc only protects an EXISTING ~/.zshrc,
-# so with none linked yet it writes its template there and this step conflicts.
 stow_pkg() { stow -d ${DOTFILES} -t ${HOME} --no-folding "$@" }
 
 if command -v stow &>/dev/null; then
@@ -213,46 +285,16 @@ if command -v btop &>/dev/null; then
     fi
 fi
 
-
-# ============================================================
-# Oh My Zsh
-# ============================================================
-if [[ ! -d ${HOME}/.oh-my-zsh ]]; then
-    if ask "Install Oh My Zsh?"; then
-        info "Installing Oh My Zsh..."
-
-        if omz_bootstrap=$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh); then
-            sh -c "$omz_bootstrap" "" --unattended --keep-zshrc \
-                || warn "Oh My Zsh installer exited non-zero, continuing..."
-        else
-            warn "Could not download the Oh My Zsh installer, continuing..."
-        fi
-
-        if [[ -d ${HOME}/.oh-my-zsh ]]; then
-            ok "Oh My Zsh installed."
-        else
-            warn "Oh My Zsh is still absent; its theme and plugins will be skipped."
-        fi
+# --- Git hooks ---
+# Repo-local config, not the tracked .gitconfig: every commit here runs .githooks/checks.zsh.
+if command -v git &>/dev/null \
+    && [[ $(git -C ${DOTFILES} config --local core.hooksPath 2>/dev/null) != .githooks ]]; then
+    if git -C ${DOTFILES} config --local core.hooksPath .githooks; then
+        ok "Pre-commit checks enabled for this repo."
+    else
+        warn "Could not set core.hooksPath; commits here skip the checks."
     fi
 fi
-
-# --- Theme & plugins ---
-ZSH_CUSTOM=${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}
-
-omz_clone() {
-    local kind=$1 name=$2 url=$3
-    [[ -d ${HOME}/.oh-my-zsh ]] || return 0
-    [[ -d ${ZSH_CUSTOM}/${kind}/${name} ]] && return 0
-    ask "Install oh-my-zsh ${kind%s} '${name}'?" || return 0
-    git clone --depth=1 "$url" "${ZSH_CUSTOM}/${kind}/${name}" \
-        || { warn "Failed to clone ${name}, continuing..."; return 0 }
-    ok "${name} installed."
-}
-
-omz_clone themes  powerlevel10k           https://github.com/romkatv/powerlevel10k.git
-omz_clone plugins fzf-tab                 https://github.com/Aloxaf/fzf-tab.git
-omz_clone plugins zsh-autosuggestions     https://github.com/zsh-users/zsh-autosuggestions.git
-omz_clone plugins zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting.git
 
 
 # ============================================================
@@ -345,7 +387,6 @@ if ask "Apply macOS screenshot defaults?"; then
     defaults write com.apple.screencapture location-screenrecording -string "${HOME}/Pictures/Screenshots"
     mkdir -p ${HOME}/Pictures/Screenshots
     defaults write com.apple.screencapture disable-shadow -bool true
-    defaults write com.apple.screencapture type -string "png"
     killall SystemUIServer 2>/dev/null || true
     ok "Screenshots: copied to the clipboard without a shadow; screen recordings are saved to ~/Pictures/Screenshots."
 fi
@@ -370,7 +411,7 @@ fi
 
 if (( ${#warnings} )); then
     print -P "%F{yellow}[WARN]%f  ${#warnings} warning(s) this run:"  # not warn(): it appends
-    for w in $warnings; do print -P "        - $w"; done
+    for w in $warnings; do print -P "        - ${w//\%/%%}"; done
 fi
 
 ok "All done!"

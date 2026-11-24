@@ -3,25 +3,33 @@ name: dotfiles-check
 description: Verify this dotfiles repo — zsh syntax, Brewfile parseability against install's regex, stow dry-runs for every package, missing and dangling links, the secrets allowlists and gitleaks, and drift between the Brewfile, Homebrew and the README.
 ---
 
-There is no CI, linter or test suite; this is the whole verification surface. Run every check, then
-report once, grouped. **Read-only and dry runs only — never the real `stow`, `./install` or `brew`.**
+The pre-commit hook and CI run `.githooks/checks.zsh` (zsh syntax, Brewfile lines and duplicates,
+JSON/YAML/TOML parsing, shellcheck, gitleaks); this is the full check on top. Run every check, then report once, grouped.
+**Read-only and dry runs only — never the real `stow`, `./install` or `brew`.**
 
-## 1. zsh syntax
+## 1. Syntax and config validation
 
-    zsh -n install zsh/.zshrc zsh/.zprofile zsh/.p10k.zsh
+    zsh .githooks/checks.zsh                                   # the hook's checks, on the tracked tree
+    /Applications/Ghostty.app/Contents/MacOS/ghostty +validate-config
 
-All four are zsh, so shellcheck can't parse them. A broken `.zshrc` breaks every new terminal. Then
+`ghostty` is on PATH only inside Ghostty (its shell integration adds it), hence the full path. Also
+check that `git config --local core.hooksPath` is `.githooks`, or commits skip the hook.
+
+`install` and the zsh files are zsh, so shellcheck can't parse them. A broken `.zshrc` breaks every new terminal. Then
 read `install` for the `set -eu` traps listed in CLAUDE.md: a bare false `(( ))`/`[[ ]]` outside an
 `if`, a function ending in `[[ ]] && cmd`, and the Brewfile loop no longer reading from FD 3.
 
 ## 2. Brewfile
 
-Every non-comment, non-blank line must match `install`'s regex, or it is silently skipped:
+`install` reads `Brewfile`, then `Brewfile.<profile>` (the profile is in `~/.config/dotfiles/profile`),
+then the untracked `Brewfile.local`. Check every `Brewfile*` in the repo. Every non-comment,
+non-blank line must match `install`'s regex, or it is silently skipped:
 
-    ^(brew|cask|tap)[[:space:]]+"([^"]+)"
+    ^(brew|cask|tap|mas|vscode)[[:space:]]+"([^"]+)"(,[[:space:]]*id:[[:space:]]*([0-9]+))?
 
-Report failures (single quotes, `mas`/`vscode` verbs, `args:` suffixes). Every `tap` must sit above
-the packages drawn from it.
+Report failures (single quotes, other verbs, `args:` suffixes, a `mas` line without `id:`), and any
+entry declared in more than one file. In reading order, every `tap` must come before the packages
+drawn from it, and `brew "mas"` and `cask "visual-studio-code"` before the `mas` and `vscode` entries.
 
 ## 3. Stow and links
 
@@ -56,8 +64,8 @@ the repo copy stops tracking plugin revisions.
 
 ## 4. Secrets
 
-Every tracked file in `ssh/` and `claude/` needs a `!` re-include (`git check-ignore -v <path>`);
-`config-work` is ignored on purpose and must stay untracked. Nothing sensitive may be tracked: keys,
+Every tracked file in `ssh/`, `claude/`, `gh/`, `k9s/` and `git/.config/git/` needs a `!` re-include (`git check-ignore --no-index -v <path>`);
+`config-work` and `Brewfile.local` are ignored on purpose and must stay untracked. Nothing sensitive may be tracked: keys,
 `known_hosts`, `.credentials.json`, history files. The repo is public, so scan history and the
 uncommitted changes:
 
@@ -66,9 +74,15 @@ uncommitted changes:
 
 ## 5. Drift
 
+Compare this machine against the files `install` reads for it. A missing profile file means shared
+only; report it, since `install` will prompt:
+
+    profile=$(<~/.config/dotfiles/profile 2>/dev/null)
+    brewfiles=(Brewfile ${profile:+Brewfile.$profile}(N) Brewfile.local(N))
+
 **Brewfile vs Homebrew**, both ways — each direction needs a different source:
 
-    declared=$(grep -oE '^brew "[^"]+"' Brewfile | cut -d'"' -f2 | sed 's|.*/||' | sort -u)
+    declared=$(cat $brewfiles | grep -oE '^brew "[^"]+"' | cut -d'"' -f2 | sed 's|.*/||' | sort -u)
     on_request=$(brew info --json=v2 --installed \
         | jq -r '.formulae[] | select(any(.installed[]; .installed_on_request)) | .name' | sort -u)
     comm -13 <(echo "$declared") <(echo "$on_request")                  # undeclared
@@ -78,8 +92,22 @@ uncommitted changes:
 - _Undeclared_ compares against on-request formulae: `brew list` includes ~100 dependencies, and `brew leaves` lists orphans and misses hand installs that something depends on.
 - _Missing_ compares against `brew list`: a declared formula another one pulled in first isn't marked on-request.
 - Missing under one name and undeclared under another is an **alias** — declare the canonical name (`brew info --formula --json=v2 <name> | jq -r '.formulae[0].name'`).
-- Casks have no dependencies, so `brew list --cask` works both ways.
+- Casks have no dependencies, so `brew list --cask` works both ways. Declared casks come from `cat $brewfiles` too.
 - A deliberate hand install is recorded as a `#` comment in the Brewfile; subtract it.
+- An undeclared package that another profile's Brewfile declares belongs to that profile: either it was installed here by hand, or this machine's profile is wrong.
+
+**App Store and VS Code**, both ways. App Store ids come from the receipts, so `mas` needn't be installed:
+
+    declared=$(cat $brewfiles | grep -oE '^mas "[^"]+", id: [0-9]+' | grep -oE '[0-9]+$' | sort -u)
+    owned=$(for a in /Applications/*.app(N); do [[ -d $a/Contents/_MASReceipt ]] \
+        && mdls -raw -name kMDItemAppStoreAdamID $a; echo; done | grep -E '^[0-9]+$' | sort -u)
+    comm -3 <(echo "$declared") <(echo "$owned")
+
+    comm -3 <(cat $brewfiles | grep -oE '^vscode "[^"]+"' | cut -d'"' -f2 | tr A-Z a-z | sort -u) \
+            <(code --list-extensions | tr A-Z a-z | sort -u)
+
+**Live configs never tracked:** a file under `~/.config/<tool>/` that isn't a repo link, for a tool
+that has no package, is drift — a new package or a deliberate omission.
 
 **Never suggest `brew uninstall --zap` without reading the cask's zap stanza** — it can delete live
 user data (`steam`'s trashes the whole library). `brew info --cask` truncates the stanza; fetch

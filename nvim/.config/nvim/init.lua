@@ -62,6 +62,12 @@ vim.o.mouse = "a"
 vim.o.confirm = true
 vim.o.updatetime = 250
 
+-- No remote-plugin hosts: nothing here uses them.
+vim.g.loaded_python3_provider = 0
+vim.g.loaded_node_provider = 0
+vim.g.loaded_ruby_provider = 0
+vim.g.loaded_perl_provider = 0
+
 
 -- ============================================================
 -- Keymaps
@@ -230,7 +236,7 @@ if nvim_tree then
         callback = function()
             local wins = vim.tbl_filter(function(w)
                 return vim.api.nvim_win_get_config(w).relative == ""
-            end, vim.api.nvim_list_wins())
+            end, vim.api.nvim_tabpage_list_wins(0))
             if #wins == 2 and tree.is_visible() and vim.bo.filetype ~= "NvimTree" then
                 tree.close()
             end

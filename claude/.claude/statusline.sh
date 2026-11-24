@@ -191,6 +191,9 @@ out+="${blue}${model_name}${reset}"
 # Current working directory ($cwd parsed in the single jq pass above)
 if [ -n "$cwd" ]; then
     display_dir="${cwd##*/}"
+    # A crafted directory name must not inject terminal escapes through printf %b below.
+    display_dir="${display_dir//[[:cntrl:]]/}"
+    display_dir="${display_dir//\\/\\\\}"
     git_branch=$(git -C "${cwd}" rev-parse --abbrev-ref HEAD 2>/dev/null)
     out+=" ${dim}|${reset} "
     out+="${cyan}${display_dir}${reset}"

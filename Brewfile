@@ -1,8 +1,4 @@
-# ============================================================
-# Taps
-# ============================================================
-# Must precede their packages: install walks this file top to bottom and trusts each tap as it's added.
-tap "gigalixir/brew"                # provides gigalixir
+# Shared by every Mac: install reads this, then Brewfile.<profile>, then the untracked Brewfile.local.
 
 # ============================================================
 # Formulae
@@ -12,7 +8,7 @@ tap "gigalixir/brew"                # provides gigalixir
 brew "stow"
 brew "git"
 brew "neovim"
-brew "tree-sitter-cli"              # nvim-treesitter compiles parsers with it
+brew "tree-sitter-cli"
 
 # --- Modern CLI replacements ---
 brew "bat"
@@ -24,8 +20,9 @@ brew "zoxide"
 
 # --- Shell utilities ---
 brew "fzf"
+brew "starship"
 brew "tealdeer"
-brew "tree"
+brew "zimfw"
 
 # --- Data processing ---
 brew "jq"
@@ -43,20 +40,13 @@ brew "git-lfs"
 brew "lazygit"
 
 # --- Containers ---
-# No brew docker/docker-compose: OrbStack ships both plus buildx, and brew's would shadow them.
 brew "lazydocker"
+brew "k9s"
 
 # --- Languages & runtimes ---
-brew "mise"
+brew "node@24"  # fio-docs' .nvmrc and engines; keg-only, .zprofile adds its bin
 brew "elixir"
-brew "elm"
 brew "pnpm"
-
-# --- Databases ---
-brew "postgresql@17"                # keg-only; .zprofile puts its bin on PATH
-
-# --- Hosting ---
-brew "gigalixir"
 
 # --- Authoring & linting ---
 brew "actionlint"
@@ -84,31 +74,80 @@ cask "dotnet-sdk"
 cask "orbstack"
 cask "yaak"
 
-# --- Windows compatibility ---
-cask "crossover"
-
 # --- AI ---
 cask "claude"
 cask "claude-code@latest"
 
-# --- Browsers & media ---
+# --- Browsers ---
 cask "google-chrome"
-cask "iina"
-
-# --- Games ---
-cask "battle-net"
-cask "curseforge"
-cask "steam"
-
-# --- Communication & remote access ---
-cask "discord"
-cask "teamviewer"
 
 # --- System & hardware ---
 cask "focusrite-control-2"
 cask "logi-options+"
+cask "maccy"
 cask "macs-fan-control"
 cask "monitorcontrol"
 cask "onyx"
-cask "philips-hue-sync"
 cask "thaw"
+
+
+# ============================================================
+# VS Code extensions
+# ============================================================
+# Installed with `code`, which the visual-studio-code cask provides.
+
+# --- Theme & UI ---
+vscode "aaron-bond.better-comments"
+vscode "catppuccin.catppuccin-vsc"
+vscode "catppuccin.catppuccin-vsc-icons"
+vscode "kisstkondoros.vscode-gutter-preview"
+vscode "subframe7536.custom-ui-style"
+vscode "usernamehw.errorlens"
+vscode "wix.vscode-import-cost"
+
+# --- Editing ---
+vscode "alefragnani.bookmarks"
+vscode "alefragnani.project-manager"
+vscode "editorconfig.editorconfig"
+vscode "esbenp.prettier-vscode"
+vscode "foxundermoon.shell-format"
+vscode "humao.rest-client"
+vscode "yzhang.markdown-all-in-one"
+
+# --- Git & GitHub ---
+vscode "eamodio.gitlens"
+vscode "github.vscode-github-actions"
+vscode "github.vscode-pull-request-github"
+
+# --- AI ---
+vscode "anthropic.claude-code"
+
+# --- .NET ---
+vscode "aliasadidev.nugetpackagemanagergui"
+vscode "hbenl.vscode-test-explorer"
+vscode "ionide.ionide-fsharp"
+vscode "ms-dotnettools.csdevkit"
+vscode "ms-dotnettools.csharp"
+vscode "ms-dotnettools.vscode-dotnet-runtime"
+vscode "ms-vscode.test-adapter-converter"
+
+# --- Azure & containers ---
+vscode "azurite.azurite"
+vscode "ms-azuretools.vscode-azurefunctions"
+vscode "ms-azuretools.vscode-azureresourcegroups"
+vscode "ms-azuretools.vscode-containers"
+vscode "ms-vscode-remote.remote-containers"
+vscode "ms-vscode.azurecli"
+
+# --- Web ---
+vscode "bradlc.vscode-tailwindcss"
+vscode "csstools.postcss"
+
+# --- Other languages ---
+vscode "jakebecker.elixir-ls"
+vscode "ms-python.debugpy"
+vscode "ms-python.python"
+vscode "ms-python.vscode-pylance"
+vscode "ms-python.vscode-python-envs"
+vscode "redhat.vscode-xml"
+vscode "redhat.vscode-yaml"

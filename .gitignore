@@ -18,8 +18,8 @@ CLAUDE.local.md
 # ============================================================
 # Stow package allowlists
 # ============================================================
-# --no-folding makes these real dirs in $HOME, so the app writes secrets
-# straight into the repo. Ignore everything, re-include only what we track.
+# Backstop for a stow run without --no-folding, which would fold these dirs into
+# repo symlinks and land app secrets in git. Ignore everything, re-include what we track.
 
 # SSH: track only the config — never keys, known_hosts, or other runtime files.
 ssh/.ssh/*
@@ -31,9 +31,24 @@ claude/.claude/*
 !claude/.claude/settings.json
 !claude/.claude/statusline.sh
 
-# Git: the work identity is machine-local, like ~/.ssh/config.local. Keep the
-# file on disk so stow links it; git ignores a missing includeIf path.
-git/.config/git/config-work
+# GitHub CLI: track only config.yml — never hosts.yml, which holds the token.
+gh/.config/gh/*
+!gh/.config/gh/config.yml
+
+# k9s: track only config.yaml and skins — never clusters/, screen dumps or benchmarks.
+k9s/.config/k9s/*
+!k9s/.config/k9s/config.yaml
+!k9s/.config/k9s/skins/
+
+# Git: track only the global ignore and allowed_signers — never credentials, which
+# git's credential store can write here. The work identity, config-work, is
+# machine-local like ~/.ssh/config.local: keep it on disk so stow links it.
+git/.config/git/*
+!git/.config/git/ignore
+!git/.config/git/allowed_signers
+
+# Homebrew: packages for this machine only, such as work tools that shouldn't be public.
+/Brewfile.local
 
 
 # ============================================================

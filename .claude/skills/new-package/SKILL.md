@@ -19,9 +19,10 @@ and ignores; follow them.
     Write a real, working config, not a stub, themed Catppuccin Frappé if the tool supports themes.
     Check whether the format allows trailing comments before using one.
 
-3.  **Ignore runtime state.** Under `--no-folding` the directory is real in `$HOME`, so caches,
-    history or credentials the app writes there land in the repo. If it does, add an allowlist block
-    to `/.gitignore` like the `ssh/` and `claude/` ones:
+3.  **Ignore runtime state.** `--no-folding` keeps the directory real in `$HOME`, but a stow run
+    without it would fold it into a repo symlink, landing caches, history or credentials in git.
+    If the app writes any there, add an allowlist block to `/.gitignore` like the `ssh/`, `claude/`
+    and `gh/` ones:
 
         <tool>/.config/<tool>/*
         !<tool>/.config/<tool>/config

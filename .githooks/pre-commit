@@ -1,0 +1,3 @@
+#!/usr/bin/env zsh
+# install points core.hooksPath here. Bypass once with `git commit --no-verify`.
+exec zsh "$(git rev-parse --show-toplevel)/.githooks/checks.zsh" --staged

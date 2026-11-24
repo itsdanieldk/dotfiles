@@ -1,0 +1,29 @@
+# ============================================================
+# Modules
+# ============================================================
+# zim's template, minus git, termtitle and the prompt modules; plus archive and run-help.
+zmodule environment
+zmodule input
+zmodule utility
+zmodule archive
+zmodule run-help
+
+
+# ============================================================
+# Completion
+# ============================================================
+# Definitions before `completion`, which runs compinit.
+zmodule zsh-users/zsh-completions --fpath src
+zmodule dotnet --use mkdir --if-command dotnet --on-pull 'dotnet completions script zsh >| _dotnet' --fpath .
+zmodule completion
+
+
+# ============================================================
+# Line editor
+# ============================================================
+# fzf-tab before the widget wrappers; substring search after highlighting; autosuggestions last (MANUAL_REBIND).
+zmodule Aloxaf/fzf-tab
+zmodule catppuccin/zsh-syntax-highlighting --name catppuccin-zsh-syntax-highlighting --source themes/catppuccin_frappe-zsh-syntax-highlighting.zsh  # before highlighting, per its README
+zmodule zsh-users/zsh-syntax-highlighting
+zmodule zsh-users/zsh-history-substring-search
+zmodule zsh-users/zsh-autosuggestions

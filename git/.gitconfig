@@ -9,13 +9,14 @@
     signingkey = ~/.ssh/id_ed25519  # private-key path: signs via the agent, prompts only if the agent lacks it
 [gpg]
     format = ssh
+[gpg "ssh"]
+    allowedSignersFile = ~/.config/git/allowed_signers  # without it --show-signature and verify-commit error
 
 
 # ============================================================
 # Core & pager
 # ============================================================
 [core]
-    editor = nvim
     pager = delta
     fsmonitor = true
     untrackedCache = true
@@ -42,8 +43,7 @@
     verbose = true
     gpgsign = true
 [fetch]
-    prune = true
-    prunetags = true
+    prune = true  # not prunetags: it deletes local tags not yet pushed
 
 
 # ============================================================

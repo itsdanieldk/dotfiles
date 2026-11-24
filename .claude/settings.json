@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in */install|*/.zshrc|*/.zprofile|*/.p10k.zsh) zsh -n \"$f\" || exit 2;; esac; }",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in */install|*/.zshrc|*/.zprofile|*/.zimrc|*/.githooks/*) zsh -n \"$f\" || exit 2;; esac; }",
             "timeout": 20,
             "statusMessage": "zsh -n"
           },

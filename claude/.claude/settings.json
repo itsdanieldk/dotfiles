@@ -1,7 +1,18 @@
 {
   "env": {
     "STATUSLINE_CHECK_UPDATES": "false",
-    "DISABLE_TELEMETRY": "1"
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1"
+  },
+  "permissions": {
+    "deny": [
+      "Read(~/.ssh/id_*)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.azure/**)",
+      "Read(~/.kube/**)",
+      "Read(**/.env)",
+      "Read(**/.env.*)"
+    ]
   },
   "model": "opus",
   "statusLine": {

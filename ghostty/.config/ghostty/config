@@ -12,7 +12,6 @@ font-size = 14.5
 # right Option still composes Danish [ ] { } \
 macos-option-as-alt = left
 
-macos-titlebar-style = transparent
 macos-titlebar-proxy-icon = hidden
 
 
@@ -52,12 +51,6 @@ keybind = cmd+shift+w=close_surface
 
 # Tabs (default cmd+9 is last_tab)
 keybind = cmd+physical:nine=goto_tab:9
-
-# Navigate between splits
-keybind = cmd+left=goto_split:left
-keybind = cmd+right=goto_split:right
-keybind = cmd+up=goto_split:up
-keybind = cmd+down=goto_split:down
 
 # Layout
 keybind = cmd+shift+l=toggle_split_zoom
