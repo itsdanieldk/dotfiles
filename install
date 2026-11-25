@@ -358,10 +358,10 @@ fi
 
 # --- Keyboard ---
 if ask "Apply macOS keyboard defaults?"; then
-    # 15ms ticks, below the System Settings floor of 2. Applies after re-login.
-    defaults write NSGlobalDomain KeyRepeat -float 1.5
-    # Delay before repeat kicks in — 12 is 180ms, below the UI "Short" minimum (15).
-    defaults write NSGlobalDomain InitialKeyRepeat -int 12
+    # 15ms ticks; 2 (30ms) is the System Settings fastest. Applies after re-login.
+    defaults write NSGlobalDomain KeyRepeat -float 2
+    # Delay before repeat kicks in — 15 is 225ms, the UI "Short" minimum.
+    defaults write NSGlobalDomain InitialKeyRepeat -int 15
     # All off — smart quotes and dashes corrupt code on paste.
     for key in NSAutoCorrectionEnabled NSAutomaticQuoteSubstitutionEnabled \
                NSAutomaticDashSubstitutionEnabled NSAutomaticCapitalizationEnabled \
