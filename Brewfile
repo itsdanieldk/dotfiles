@@ -7,8 +7,15 @@
 # --- Core ---
 brew "stow"
 brew "git"
-brew "neovim"
-brew "tree-sitter-cli"
+brew "emacs"
+
+# --- Unix tools ---
+brew "bash"
+brew "gcc"  # installs gcc-N/g++-N/gfortran; plain gcc and cc stay Apple clang
+brew "make"  # installs gmake; /usr/bin/make stays 3.81
+brew "rsync"
+brew "watch"
+brew "wget"
 
 # --- Modern CLI replacements ---
 brew "bat"

@@ -39,7 +39,7 @@ Dry-run every package `install` would stow (the non-dotted top-level directories
     stow -d ~/dotfiles -t ~ --no-folding -n -R <pkg>
 
 **Files never linked.** A package gained a file and wasn't re-stowed, so the app silently falls back
-to a default — that is how a missing Neovim colorscheme went unnoticed. Walk the disk, not
+to a default — that is how a missing colorscheme went unnoticed. Walk the disk, not
 `git ls-files`, so untracked files such as `git/.config/git/config-work` are covered:
 
     () {                                # anonymous function, so localoptions actually scopes
@@ -54,8 +54,10 @@ to a default — that is how a missing Neovim colorscheme went unnoticed. Walk t
         done
     }
 
-An unlinked `nvim/.config/nvim/nvim-pack-lock.json` means `vim.pack` writes a real file instead and
-the repo copy stops tracking plugin revisions.
+**Shadowed Emacs config.** Any of these makes Emacs ignore `~/.config/emacs`, linked or not, so this
+must print nothing:
+
+    ls -d ~/.emacs.d ~/.emacs ~/.emacs.el 2>/dev/null
 
 **Dangling links.** stow only unlinks what a package still contains, so deleted files strand theirs:
 
@@ -64,7 +66,7 @@ the repo copy stops tracking plugin revisions.
 
 ## 4. Secrets
 
-Every tracked file in `ssh/`, `claude/`, `gh/`, `k9s/` and `git/.config/git/` needs a `!` re-include (`git check-ignore --no-index -v <path>`);
+Every tracked file in `ssh/`, `claude/`, `gh/`, `k9s/`, `emacs/` and `git/.config/git/` needs a `!` re-include (`git check-ignore --no-index -v <path>`);
 `config-work` and `Brewfile.local` are ignored on purpose and must stay untracked. Nothing sensitive may be tracked: keys,
 `known_hosts`, `.credentials.json`, history files. The repo is public, so scan history and the
 uncommitted changes:

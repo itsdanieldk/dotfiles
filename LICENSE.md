@@ -28,3 +28,8 @@ For more information, please refer to <https://unlicense.org>
 Exception: `claude/.claude/statusline.sh` is vendored from
 <https://github.com/daniel3303/ClaudeCodeStatusLine> and remains under the MIT License,
 Copyright (c) 2025 Daniel Oliveira. Its full notice is retained in the file header.
+
+Exception: `emacs/.config/emacs/themes/` is vendored from
+<https://github.com/catppuccin/emacs> and remains under the MIT License,
+Copyright 2022-present Catppuccin. Its full notice is retained in the header of
+`catppuccin-theme.el`.

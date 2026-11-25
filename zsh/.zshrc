@@ -4,7 +4,7 @@
 typeset -U path PATH fpath FPATH  # brew exports FPATH; nested shells' dupes rebuild the completion dump
 
 export LANG=en_US.UTF-8  # /etc/zprofile falls back to C.UTF-8
-export EDITOR=nvim VISUAL=nvim
+export EDITOR=emacs VISUAL=emacs
 
 
 # ============================================================
@@ -12,7 +12,7 @@ export EDITOR=nvim VISUAL=nvim
 # ============================================================
 # Before zim's init, as in its template .zshrc.
 setopt HIST_IGNORE_ALL_DUPS NO_FLOW_CONTROL
-bindkey -e  # EDITOR=nvim would select viins
+bindkey -e
 WORDCHARS=${WORDCHARS//[\/]}
 
 ZSH_AUTOSUGGEST_MANUAL_REBIND=1
@@ -52,8 +52,7 @@ zstyle ':completion:*:*:*:*:processes' command "ps -u $USERNAME -o pid,user,comm
 # ============================================================
 # Aliases
 # ============================================================
-alias v="nvim"
-alias vim="nvim"
+alias e="emacs"
 
 # Modern CLI replacements
 # Not under Claude Code: its shell snapshot keeps aliases, and agents parse ls and cat output.

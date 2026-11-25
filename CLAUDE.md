@@ -10,8 +10,8 @@
 
 Every non-hidden top-level directory is a stow package mirroring `$HOME`:
 
-    zsh/.zshrc                  ->  ~/.zshrc
-    nvim/.config/nvim/init.lua  ->  ~/.config/nvim/init.lua
+    zsh/.zshrc                   ->  ~/.zshrc
+    emacs/.config/emacs/init.el  ->  ~/.config/emacs/init.el
 
 - Never put a file at a package root unless it is a real `$HOME` path.
 - **`--no-folding` is mandatory** (`.stowrc` and `install`). Without it `~/.ssh` and `~/.claude` become symlinks into the repo and apps write secrets into git.
@@ -52,7 +52,7 @@ Parsed by `install`'s own regex, not `brew bundle`; any other shape is silently 
 
 ## Secrets and ignores
 
-- `/.gitignore` allowlists `ssh/`, `claude/`, `gh/`, `k9s/` and `git/`: `ssh/.ssh/*` + `!ssh/.ssh/config`, `claude/.claude/*` + `!` lines for `settings.json` and `statusline.sh`, `gh/.config/gh/*` + `!gh/.config/gh/config.yml` (`hosts.yml` holds the token), `k9s/.config/k9s/*` + `!` lines for `config.yaml` and `skins/` (k9s writes `clusters/` and dumps there), and `git/.config/git/*` + `!` lines for `ignore` and `allowed_signers` (git's credential store can write there). **A new tracked file there needs its own `!` re-include**, or git never sees it.
+- `/.gitignore` allowlists `ssh/`, `claude/`, `gh/`, `k9s/`, `emacs/` and `git/`: `ssh/.ssh/*` + `!ssh/.ssh/config`, `claude/.claude/*` + `!` lines for `settings.json` and `statusline.sh`, `gh/.config/gh/*` + `!gh/.config/gh/config.yml` (`hosts.yml` holds the token), `k9s/.config/k9s/*` + `!` lines for `config.yaml` and `skins/` (k9s writes `clusters/` and dumps there), `emacs/.config/emacs/*` + `!` lines for `init.el` and `themes/` (Emacs writes `custom.el`, `auto-save-list/` and packages there), and `git/.config/git/*` + `!` lines for `ignore` and `allowed_signers` (git's credential store can write there). **A new tracked file there needs its own `!` re-include**, or git never sees it.
 - `git/.config/git/config-work` stays ignored by that allowlist — the work identity is machine-local, and git skips an `includeIf` whose file is missing. `/Brewfile.local` is ignored outright.
 - `.gitignore` has **no trailing-comment syntax**: `pattern  # note` silently stops matching.
 - `/.gitignore` covers this repo; `git/.config/git/ignore` applies to every repo on the machine, so keep it conservative.
@@ -75,15 +75,17 @@ Wrong order breaks silently.
 - **Ghostty and `.gitignore` have no trailing comments** — a `# note` folds into the value. Put comments on their own line.
 - When a package is added or removed, update the README's package table.
 
-## Neovim
+## Emacs
 
 - Sized for quick terminal edits; real work happens in Rider and VS Code.
-- Plugins come **only from the built-in `vim.pack`**, pinned by the tracked `nvim-pack-lock.json`, which it writes in place through the stow link: catppuccin, nvim-tree, nvim-web-devicons, nvim-treesitter (`main`; parsers built with `tree-sitter-cli`, since 0.12 ships no Elixir, HEEx or F# highlighting), gitsigns, fzf-lua. Ask before adding one.
-- Every `setup()` is guarded by `pcall(require, ...)`, so a declined install still leaves a working editor — `EDITOR=nvim` opens commit messages.
-- **No LSP, diagnostics or formatter**, and no keymaps for them.
+- homebrew-core's formula is terminal-only (no Cocoa), so `EDITOR=emacs` needs no `-nw`. No daemon.
+- **Vanilla on purpose:** `init.el` turns on `editorconfig-mode`, loads the vendored Catppuccin Frappé theme and moves `custom-file` out, since Customize and package.el would write through the stow link into the repo. Ask before adding a package or setting.
+- **A `~/.emacs.d`, `~/.emacs` or `~/.emacs.el` silently shadows `~/.config/emacs`.** Stow `emacs` before the first launch.
+- Backups, auto-saves and lock links (`*~`, `#*#`, `.#*`) land next to the file: stow's default ignore list skips them (a `.stow-local-ignore` would replace it), the global git ignore hides them.
 
-## Vendored statusline
+## Vendored files
 
-`claude/.claude/statusline.sh` comes from [ClaudeCodeStatusLine](https://github.com/daniel3303/ClaudeCodeStatusLine).
-Keep it bash 3.2-compatible and don't restyle it. It is MIT, Copyright (c) 2025 Daniel Oliveira — the
-licence header must survive every edit.
+Both are MIT, listed as exceptions in `LICENSE.md` and the README; their licence headers must survive every edit.
+
+- `claude/.claude/statusline.sh` comes from [ClaudeCodeStatusLine](https://github.com/daniel3303/ClaudeCodeStatusLine), Copyright (c) 2025 Daniel Oliveira. Keep it bash 3.2-compatible and don't restyle it.
+- `emacs/.config/emacs/themes/` is [catppuccin/emacs](https://github.com/catppuccin/emacs) at `56c3cbe`, Copyright 2022-present Catppuccin; the notice is in `catppuccin-theme.el`. Keep both files verbatim — the theme reads `catppuccin-definitions.el` from its own directory — and update them together from one upstream commit.

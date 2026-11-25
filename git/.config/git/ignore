@@ -24,6 +24,10 @@ CLAUDE.local.md
 .ionide/
 # Local History extension only; the rest of .vscode/ is shared team config.
 .vscode/.history/
+# Emacs backups, auto-saves and lock links.
+*~
+\#*\#
+.\#*
 
 # --- .NET ---
 # Also covers Rider's *.DotSettings.user.

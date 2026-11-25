@@ -40,6 +40,11 @@ k9s/.config/k9s/*
 !k9s/.config/k9s/config.yaml
 !k9s/.config/k9s/skins/
 
+# Emacs: track only init.el and the vendored themes — never custom.el, auto-save-list/ or packages.
+emacs/.config/emacs/*
+!emacs/.config/emacs/init.el
+!emacs/.config/emacs/themes/
+
 # Git: track only the global ignore and allowed_signers — never credentials, which
 # git's credential store can write here. The work identity, config-work, is
 # machine-local like ~/.ssh/config.local: keep it on disk so stow links it.

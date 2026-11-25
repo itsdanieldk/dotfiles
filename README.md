@@ -12,7 +12,7 @@ interactive `./install` sets up the rest.
 
 - **Leaf-only symlinks** — `--no-folding` keeps `~/.ssh` and `~/.claude` real directories, so secrets stay out of git
 - **One installer** — asks before each step and each package, and skips what is already there
-- **Catppuccin Frappé everywhere** — Ghostty, Neovim, Starship, bat, btop, delta, fzf, k9s, lazygit
+- **Catppuccin Frappé everywhere** — Ghostty, Emacs, Starship, bat, btop, delta, fzf, k9s, lazygit
 - **Private by default** — telemetry off, allowlist `.gitignore`s for credentials
 - **Checked** — a pre-commit hook and CI run gitleaks, zsh syntax, shellcheck, config parsing and Brewfile lint
 
@@ -43,13 +43,13 @@ It asks for this Mac's profile once and remembers it. To sync later, `dotup` pul
 | `bat` | Theme and style |
 | `btop` | Catppuccin theme; `install` seeds `btop.conf`, which btop rewrites on exit |
 | `claude` | Claude Code settings that deny reads of keys, credentials and `.env` files; a vendored statusline |
+| `emacs` | Vanilla terminal Emacs: vendored Catppuccin theme, editorconfig; Customize writes to an untracked `custom.el` |
 | `gh` | GitHub CLI config; the token in `hosts.yml` stays untracked |
 | `ghostty` | Fira Code Nerd Font; left Option as Alt, so right Option still types Danish characters |
 | `git` | delta, LFS, SSH-signed commits and tags, global ignore |
 | `hushlogin` | Silences "Last login" |
 | `k9s` | Transparent Catppuccin skin; `.zprofile` points `K9S_CONFIG_DIR` at `~/.config/k9s` |
 | `lazygit` | Catppuccin theme, delta diffs |
-| `nvim` | Quick-edit Neovim: file tree, treesitter, git signs, fzf; six `vim.pack` plugins, no LSP |
 | `ssh` | Keychain agent, hardened algorithms |
 | `starship` | Catppuccin Powerline prompt with git, language, Docker and exit-status segments |
 | `zsh` | zimfw with completions, fzf-tab, syntax highlighting, substring search and autosuggestions; fzf, zoxide |
@@ -95,5 +95,9 @@ Telemetry is off for dotnet, azure-cli and Homebrew (`.zprofile`), gh (`config.y
 
 ## License
 
-[Unlicense](LICENSE.md), except `claude/.claude/statusline.sh`, vendored from
-[ClaudeCodeStatusLine](https://github.com/daniel3303/ClaudeCodeStatusLine): MIT, Copyright (c) 2025 Daniel Oliveira.
+[Unlicense](LICENSE.md), except two vendored MIT works:
+
+- `claude/.claude/statusline.sh`, from [ClaudeCodeStatusLine](https://github.com/daniel3303/ClaudeCodeStatusLine):
+  Copyright (c) 2025 Daniel Oliveira.
+- `emacs/.config/emacs/themes/`, from [catppuccin/emacs](https://github.com/catppuccin/emacs): Copyright 2022-present
+  Catppuccin.
