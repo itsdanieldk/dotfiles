@@ -11,7 +11,7 @@ brew "emacs"
 
 # --- Unix tools ---
 brew "bash"
-brew "gcc"  # installs gcc-N/g++-N/gfortran; plain gcc and cc stay Apple clang
+brew "gcc"   # installs gcc-N/g++-N/gfortran; plain gcc and cc stay Apple clang
 brew "make"  # installs gmake; /usr/bin/make stays 3.81
 brew "rsync"
 brew "watch"
@@ -51,14 +51,13 @@ brew "lazydocker"
 brew "k9s"
 
 # --- Languages & runtimes ---
-brew "node@24"  # fio-docs' .nvmrc and engines; keg-only, .zprofile adds its bin
+brew "node@24"
 brew "elixir"
 brew "pnpm"
 
 # --- Authoring & linting ---
 brew "actionlint"
 brew "gitleaks"
-brew "marp-cli"
 brew "shellcheck"
 
 
@@ -74,14 +73,10 @@ cask "font-iosevka-term-nerd-font"
 
 # --- Terminal & editors ---
 cask "ghostty"
-cask "jetbrains-toolbox"
 cask "visual-studio-code"
 
 # --- Dev tooling ---
 cask "azure-cli"
-cask "dotnet-sdk"
-cask "orbstack"
-cask "yaak"
 
 # --- AI ---
 cask "claude"
@@ -93,7 +88,6 @@ cask "google-chrome"
 # --- System & hardware ---
 cask "focusrite-control-2"
 cask "logi-options+"
-cask "maccy"
 cask "macs-fan-control"
 cask "monitorcontrol"
 cask "onyx"
@@ -118,7 +112,6 @@ vscode "wix.vscode-import-cost"
 vscode "alefragnani.bookmarks"
 vscode "alefragnani.project-manager"
 vscode "editorconfig.editorconfig"
-vscode "esbenp.prettier-vscode"
 vscode "foxundermoon.shell-format"
 vscode "humao.rest-client"
 vscode "yzhang.markdown-all-in-one"
@@ -131,20 +124,7 @@ vscode "github.vscode-pull-request-github"
 # --- AI ---
 vscode "anthropic.claude-code"
 
-# --- .NET ---
-vscode "aliasadidev.nugetpackagemanagergui"
-vscode "hbenl.vscode-test-explorer"
-vscode "ionide.ionide-fsharp"
-vscode "ms-dotnettools.csdevkit"
-vscode "ms-dotnettools.csharp"
-vscode "ms-dotnettools.vscode-dotnet-runtime"
-vscode "ms-vscode.test-adapter-converter"
-
 # --- Azure & containers ---
-vscode "azurite.azurite"
-vscode "ms-azuretools.vscode-azurefunctions"
-vscode "ms-azuretools.vscode-azureresourcegroups"
-vscode "ms-azuretools.vscode-containers"
 vscode "ms-vscode-remote.remote-containers"
 vscode "ms-vscode.azurecli"
 

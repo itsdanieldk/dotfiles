@@ -17,6 +17,9 @@ brew "mas"
 # --- Languages & runtimes ---
 brew "elm"
 
+# --- Authoring & linting ---
+brew "marp-cli"
+
 # --- Databases ---
 brew "postgresql@17"  # kebabholdet's prod and CI major; keg-only, .zprofile adds its bin
 
@@ -27,6 +30,14 @@ brew "gigalixir"
 # ============================================================
 # Casks
 # ============================================================
+
+# --- Terminal & editors ---
+cask "jetbrains-toolbox"
+
+# --- Dev tooling ---
+cask "dotnet-sdk"
+cask "orbstack"
+cask "yaak"
 
 # --- Windows compatibility ---
 cask "crossover"
@@ -44,6 +55,7 @@ cask "discord"
 cask "teamviewer"
 
 # --- System & hardware ---
+cask "maccy"
 cask "philips-hue-sync"
 
 
@@ -63,3 +75,27 @@ mas "Pages Creator Studio", id: 361309726
 mas "Speedtest", id: 1153157709
 mas "uBlock Origin Lite", id: 6745342698
 mas "Xcode", id: 497799835
+
+
+# ============================================================
+# VS Code extensions
+# ============================================================
+
+# --- Editing ---
+vscode "esbenp.prettier-vscode"
+
+# --- .NET ---
+vscode "aliasadidev.nugetpackagemanagergui"
+vscode "hbenl.vscode-test-explorer"
+vscode "ionide.ionide-fsharp"
+vscode "ms-dotnettools.csdevkit"
+vscode "ms-dotnettools.csharp"
+vscode "ms-dotnettools.vscode-dotnet-runtime"
+vscode "ms-vscode.test-adapter-converter"
+
+# --- Containers ---
+vscode "ms-azuretools.vscode-containers"
+
+# --- Other languages ---
+vscode "elmtooling.elm-ls-vscode"
+vscode "tamasfe.even-better-toml"
