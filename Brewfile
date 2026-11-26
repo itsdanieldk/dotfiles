@@ -69,6 +69,8 @@ brew "shellcheck"
 # --- Fonts ---
 cask "font-fira-code-nerd-font"
 cask "font-fira-sans"
+cask "font-iosevka-nerd-font"
+cask "font-iosevka-term-nerd-font"
 
 # --- Terminal & editors ---
 cask "ghostty"

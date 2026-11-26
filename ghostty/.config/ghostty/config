@@ -1,9 +1,13 @@
 # ============================================================
 # Font
 # ============================================================
-font-family = FiraCode Nerd Font Mono
+font-family = IosevkaTerm Nerd Font Mono
+font-style = Medium
+font-style-italic = Medium Italic
 
-font-size = 14.5
+font-feature = -calt, -liga, -dlig
+
+font-size = 16
 
 
 # ============================================================

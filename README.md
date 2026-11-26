@@ -45,13 +45,13 @@ It asks for this Mac's profile once and remembers it. To sync later, `dotup` pul
 | `claude` | Claude Code settings that deny reads of keys, credentials and `.env` files; a vendored statusline |
 | `emacs` | Vanilla terminal Emacs: vendored Catppuccin theme, editorconfig; Customize writes to an untracked `custom.el` |
 | `gh` | GitHub CLI config; the token in `hosts.yml` stays untracked |
-| `ghostty` | Fira Code Nerd Font; left Option as Alt, so right Option still types Danish characters |
+| `ghostty` | IosevkaTerm Nerd Font; left Option as Alt, so right Option still types Danish characters |
 | `git` | delta, LFS, SSH-signed commits and tags, global ignore |
 | `hushlogin` | Silences "Last login" |
 | `k9s` | Transparent Catppuccin skin; `.zprofile` points `K9S_CONFIG_DIR` at `~/.config/k9s` |
 | `lazygit` | Catppuccin theme, delta diffs |
 | `ssh` | Keychain agent, hardened algorithms |
-| `starship` | Catppuccin Powerline prompt with git, language, Docker and exit-status segments |
+| `starship` | Catppuccin Powerline prompt with git, language and exit-status segments; `.zprofile` points `STARSHIP_CONFIG` at `~/.config/starship/starship.toml` |
 | `zsh` | zimfw with completions, fzf-tab, syntax highlighting, substring search and autosuggestions; fzf, zoxide |
 
 `.claude/` holds this repo's own Claude Code skills, not a `$HOME` config.

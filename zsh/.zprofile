@@ -45,6 +45,12 @@ export K9S_CONFIG_DIR=$HOME/.config/k9s  # macOS default is ~/Library/Applicatio
 
 
 # ============================================================
+# Starship
+# ============================================================
+export STARSHIP_CONFIG=$HOME/.config/starship/starship.toml  # default is ~/.config/starship.toml
+
+
+# ============================================================
 # OrbStack
 # ============================================================
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :

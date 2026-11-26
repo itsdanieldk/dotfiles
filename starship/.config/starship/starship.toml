@@ -1,0 +1,131 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+[](peach)\
+$username\
+$directory\
+[](bg:yellow fg:peach)\
+$git_branch\
+$git_commit\
+$git_state\
+$git_status\
+[](fg:yellow bg:green)\
+$c\
+$nodejs\
+$python\
+$dotnet\
+$elixir\
+[ ](fg:green)\
+$jobs\
+$status\
+$cmd_duration\
+$character"""
+
+palette = 'catppuccin_frappe'
+
+[username]
+show_always = false
+style_user = "bg:peach fg:crust"
+style_root = "bg:peach fg:crust"
+format = '[ $user]($style)'
+
+[directory]
+style = "bg:peach fg:crust"
+format = "[ $path ]($style)"
+truncation_length = 3
+truncation_symbol = "…/"
+
+[git_branch]
+symbol = ""
+style = "bg:yellow"
+format = '[[ $symbol $branch ](fg:crust bg:yellow)]($style)'
+
+[git_status]
+style = "bg:yellow"
+format = '[[($all_status$ahead_behind )](fg:crust bg:yellow)]($style)'
+ahead = '⇡${count}'
+behind = '⇣${count}'
+diverged = '⇕⇡${ahead_count}⇣${behind_count}'
+stashed = '\$${count}'
+
+[git_commit]
+style = "bg:yellow"
+format = '[[$hash$tag ](fg:crust bg:yellow)]($style)'
+
+[git_state]
+style = "bg:yellow"
+format = '[[$state( $progress_current/$progress_total) ](fg:crust bg:yellow)]($style)'
+
+[nodejs]
+symbol = ""
+style = "bg:green"
+format = '[[ $symbol( $version) ](fg:crust bg:green)]($style)'
+
+[c]
+symbol = " "
+style = "bg:green"
+format = '[[ $symbol( $version) ](fg:crust bg:green)]($style)'
+
+[python]
+symbol = ""
+style = "bg:green"
+format = '[[ $symbol( $version)(\(#$virtualenv\)) ](fg:crust bg:green)]($style)'
+
+[dotnet]
+symbol = ""
+style = "bg:green"
+format = '[[ $symbol( $version) ](fg:crust bg:green)]($style)'
+
+[elixir]
+symbol = ""
+style = "bg:green"
+format = '[[ $symbol( $version) ](fg:crust bg:green)]($style)'
+
+[jobs]
+number_threshold = 1
+style = "fg:lavender"
+format = '[$symbol$number ]($style)'
+
+[status]
+disabled = false
+symbol = '✘'
+style = "fg:red"
+format = '[$symbol$status( $signal_name) ]($style)'
+
+[character]
+success_symbol = '[❯](bold fg:green)'
+error_symbol = '[❯](bold fg:red)'
+
+[cmd_duration]
+format = "in $duration "
+show_milliseconds = false
+show_notifications = true
+min_time_to_notify = 45000
+
+[palettes.catppuccin_frappe]
+rosewater = "#f2d5cf"
+flamingo = "#eebebe"
+pink = "#f4b8e4"
+mauve = "#ca9ee6"
+red = "#e78284"
+maroon = "#ea999c"
+peach = "#ef9f76"
+yellow = "#e5c890"
+green = "#a6d189"
+teal = "#81c8be"
+sky = "#99d1db"
+sapphire = "#85c1dc"
+blue = "#8caaee"
+lavender = "#babbf1"
+text = "#c6d0f5"
+subtext1 = "#b5bfe2"
+subtext0 = "#a5adce"
+overlay2 = "#949cbb"
+overlay1 = "#838ba7"
+overlay0 = "#737994"
+surface2 = "#626880"
+surface1 = "#51576d"
+surface0 = "#414559"
+base = "#303446"
+mantle = "#292c3c"
+crust = "#232634"
